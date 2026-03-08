@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +12,7 @@ import '../services/puzzle_generator.dart';
 import '../services/word_validator.dart';
 import '../widgets/letter_wheel.dart';
 import '../widgets/word_list.dart';
+import '../theme_notifier.dart';
 
 /// Notifier that holds the current puzzle state and user progress.
 class PuzzleNotifier extends ChangeNotifier {
@@ -44,10 +46,10 @@ class PuzzleNotifier extends ChangeNotifier {
       // the alphabet file contains accented characters that won't be present
       // in the default english `alphabet.txt`.
       _alphabet = await AlphabetLoader.loadFromAsset(
-          'assets/alphabets/wolof_alphabet.txt');
+        'alphabets/wolof_alphabet.txt',
+      );
       debugPrint('initialize: alphabet loaded (${_alphabet.length} letters)');
-      final words =
-          await WordLoader.loadFromAsset('assets/wordlists/wolof_words.txt');
+      final words = await WordLoader.loadFromAsset('wordlists/wolof_words.txt');
       debugPrint('initialize: words asset returned ${words.length} entries');
 
       _dictionary = words;
@@ -57,13 +59,15 @@ class PuzzleNotifier extends ChangeNotifier {
       final seed = int.parse(DateFormat('yyyyMMdd').format(today));
       _puzzle = PuzzleGenerator.generateDaily(seed, _alphabet, words);
       debugPrint(
-          'initialize: daily puzzle center=${_puzzle?.centerLetter} totalWords=${_puzzle?.totalWords}');
+        'initialize: daily puzzle center=${_puzzle?.centerLetter} totalWords=${_puzzle?.totalWords}',
+      );
       // if the daily puzzle happens to have no valid words (common with
       // small/foreign word lists), fall back to a random playable puzzle
       if (_puzzle!.validWords.isEmpty) {
         _puzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary);
         debugPrint(
-            'initialize: daily empty, used random center=${_puzzle?.centerLetter} totalWords=${_puzzle?.totalWords}');
+          'initialize: daily empty, used random center=${_puzzle?.centerLetter} totalWords=${_puzzle?.totalWords}',
+        );
       }
       notifyListeners();
       debugPrint('initialize: finished successfully');
@@ -90,12 +94,11 @@ class PuzzleNotifier extends ChangeNotifier {
   void shuffleOuter() {
     if (_puzzle == null) return;
     // simple shuffle of outer letters maintaining center
-    final outer =
-        _puzzle!.letters.where((l) => l != _puzzle!.centerLetter).toList();
+    final outer = _puzzle!.letters
+        .where((l) => l != _puzzle!.centerLetter)
+        .toList();
     outer.shuffle();
-    final all = <String>[]
-      ..addAll(outer)
-      ..add(_puzzle!.centerLetter);
+    final all = <String>[...outer, _puzzle!.centerLetter];
     // since Puzzle is immutable we recreate
     _puzzle = Puzzle(
       centerLetter: _puzzle!.centerLetter,
@@ -125,13 +128,13 @@ class PuzzleNotifier extends ChangeNotifier {
 }
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({Key? key}) : super(key: key);
+  const GameScreen({super.key});
 
   @override
-  _GameScreenState createState() => _GameScreenState();
+  GameScreenState createState() => GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class GameScreenState extends State<GameScreen> {
   late TextEditingController _controller;
   late PuzzleNotifier _notifier;
   String _message = '';
@@ -149,6 +152,10 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    var size = MediaQuery.sizeOf(context);
+
+    bool wideScreen = size.width > 700 ? true : false;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Word Puzzle'),
@@ -164,6 +171,21 @@ class _GameScreenState extends State<GameScreen> {
               });
             },
           ),
+          VerticalDivider(),
+          Icon(
+            Theme.of(context).brightness == Brightness.dark
+                ? Icons.dark_mode
+                : Icons.light_mode,
+          ),
+          Consumer<ThemeNotifier>(
+            builder: (context, theme, _) {
+              return Switch(
+                value: theme.isDarkMode,
+                onChanged: (v) => theme.toggleTheme(v),
+                activeThumbColor: Colors.amber,
+              );
+            },
+          ),
         ],
       ),
       body: Consumer<PuzzleNotifier>(
@@ -172,50 +194,61 @@ class _GameScreenState extends State<GameScreen> {
           if (puzzle == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
+
+          Widget wheel = LetterWheel(
+            puzzle: puzzle,
+            onLetterTap: (l) {
+              _controller.text += l;
+            },
+            onShuffle: notifier.shuffleOuter,
+          );
+
+          List<Widget> input = [
+            Row(
               children: [
-                LetterWheel(
-                  puzzle: puzzle,
-                  onLetterTap: (l) {
-                    _controller.text += l;
-                  },
-                  onShuffle: notifier.shuffleOuter,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        decoration:
-                            const InputDecoration(labelText: 'Enter word'),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        final success = notifier.submit(_controller.text);
-                        setState(() {
-                          _message = success ? 'Good!' : 'Invalid';
-                        });
-                        if (success) _controller.clear();
-                      },
-                      child: const Text('Submit'),
-                    )
-                  ],
-                ),
-                if (_message.isNotEmpty) Text(_message),
-                const SizedBox(height: 8),
-                Text('Score: ${notifier.score} / ${notifier.totalPossible}'),
-                // show dictionary size for debugging
-                Text('Words loaded: ${notifier.dictionarySize}'),
-                const SizedBox(height: 8),
                 Expanded(
-                  child: WordList(words: notifier.foundWords),
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(labelText: 'Enter word'),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final success = notifier.submit(_controller.text);
+                    setState(() {
+                      _message = success ? 'Good!' : 'Invalid';
+                    });
+                    if (success) _controller.clear();
+                  },
+                  child: const Text('Submit'),
                 ),
               ],
             ),
+            if (_message.isNotEmpty) Text(_message),
+            const SizedBox(height: 8),
+            Text('Score: ${notifier.score} / ${notifier.totalPossible}'),
+            // show dictionary size for debugging
+            Text('Words loaded: ${notifier.dictionarySize}'),
+            const SizedBox(height: 8),
+            Expanded(child: WordList(words: notifier.foundWords)),
+          ];
+
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: wideScreen
+                ? Row(
+                    children: [
+                      Expanded(child: wheel),
+                      SizedBox(width: 16),
+                      SizedBox(
+                        width: min(size.width / 2, 400),
+                        child: Column(children: input),
+                      ),
+                    ],
+                  )
+                : Column(
+                    children: [wheel, const SizedBox(height: 16), ...input],
+                  ),
           );
         },
       ),

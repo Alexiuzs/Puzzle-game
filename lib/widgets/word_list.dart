@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class WordList extends StatelessWidget {
   final List<String> words;
 
-  const WordList({Key? key, required this.words}) : super(key: key);
+  const WordList({super.key, required this.words});
 
   @override
   Widget build(BuildContext context) {
@@ -13,9 +13,7 @@ class WordList extends StatelessWidget {
     }
     return ListView.builder(
       itemCount: words.length,
-      itemBuilder: (_, index) => ListTile(
-        title: Text(words[index]),
-      ),
+      itemBuilder: (_, index) => ListTile(title: Text(words[index])),
     );
   }
 }
