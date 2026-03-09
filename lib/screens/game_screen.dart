@@ -14,6 +14,8 @@ import '../widgets/letter_wheel.dart';
 import '../widgets/word_list.dart';
 import '../theme_notifier.dart';
 
+enum SubmitResult { success, alreadyFound, invalid }
+
 /// Notifier that holds the current puzzle state and user progress.
 class PuzzleNotifier extends ChangeNotifier {
   Puzzle? _puzzle;
@@ -33,9 +35,18 @@ class PuzzleNotifier extends ChangeNotifier {
   /// debugging or displaying to the user.
   int get dictionarySize => _dictionary.length;
   final List<String> _found = [];
+  final List<String> _triedWords = [];
 
   Puzzle? get puzzle => _puzzle;
-  List<String> get foundWords => List.unmodifiable(_found);
+  List<String> get foundWords {
+    final list = _found.toList()..sort();
+    return List.unmodifiable(list);
+  }
+
+  List<String> get triedWords {
+    // Show most recent attempts at the top, or optionally sorted as well.
+    return List.unmodifiable(_triedWords.reversed);
+  }
 
   int get score {
     var s = 0;
@@ -68,18 +79,18 @@ class PuzzleNotifier extends ChangeNotifier {
       // generate the first puzzle (daily seed)
       final today = DateTime.now();
       final seed = int.parse(DateFormat('yyyyMMdd').format(today));
-      _puzzle = PuzzleGenerator.generateDaily(seed, _alphabet, words);
+      
+      // We want the starting screen to always have at least 15 valid words.
+      int dailySeed = seed;
+      while (true) {
+        _puzzle = PuzzleGenerator.generateDaily(dailySeed, _alphabet, words);
+        if (_puzzle!.totalWords >= 15) break;
+        dailySeed++; // Deterministically hunt until we hit an 'Easy' valid combo for the day
+      }
+
       debugPrint(
         'initialize: daily puzzle center=${_puzzle?.centerLetter} totalWords=${_puzzle?.totalWords}',
       );
-      // if the daily puzzle happens to have no valid words (common with
-      // small/foreign word lists), fall back to a random playable puzzle
-      if (_puzzle!.validWords.isEmpty) {
-        _puzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary);
-        debugPrint(
-          'initialize: daily empty, used random center=${_puzzle?.centerLetter} totalWords=${_puzzle?.totalWords}',
-        );
-      }
       notifyListeners();
       debugPrint('initialize: finished successfully');
     } catch (e, st) {
@@ -89,17 +100,21 @@ class PuzzleNotifier extends ChangeNotifier {
     }
   }
 
-  bool submit(String input) {
+  SubmitResult submit(String input) {
     final w = input.trim().toLowerCase();
-    if (_puzzle == null) return false;
-    if (w.isEmpty) return false;
-    if (_found.contains(w)) return false;
+    if (_puzzle == null) return SubmitResult.invalid;
+    if (w.isEmpty) return SubmitResult.invalid;
+    if (_found.contains(w)) return SubmitResult.alreadyFound;
     if (WordValidator.isValid(w, _puzzle!, _dictionary)) {
       _found.add(w);
       notifyListeners();
-      return true;
+      return SubmitResult.success;
     }
-    return false;
+    if (!_triedWords.contains(w)) {
+      _triedWords.add(w);
+      notifyListeners();
+    }
+    return SubmitResult.invalid;
   }
 
   void shuffleOuter() {
@@ -126,14 +141,23 @@ class PuzzleNotifier extends ChangeNotifier {
 
     final oldCenter = _puzzle?.centerLetter;
     // generate a random puzzle that has at least one valid word
-    var newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary, difficulty: _difficulty);
+    var newPuzzle = PuzzleGenerator.generateRandom(
+      _alphabet,
+      _dictionary,
+      difficulty: _difficulty,
+    );
     // if by bad luck the center didn't change, try one more time
     if (oldCenter != null && newPuzzle.centerLetter == oldCenter) {
-      newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary, difficulty: _difficulty);
+      newPuzzle = PuzzleGenerator.generateRandom(
+        _alphabet,
+        _dictionary,
+        difficulty: _difficulty,
+      );
     }
 
     _puzzle = newPuzzle;
     _found.clear();
+    _triedWords.clear();
     notifyListeners();
   }
 }
@@ -169,26 +193,51 @@ class GameScreenState extends State<GameScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Word Puzzle'),
+        title: const Text('Wolofle'),
         actions: [
           Consumer<PuzzleNotifier>(
             builder: (context, notifier, _) {
-              return DropdownButtonHideUnderline(
-                child: DropdownButton<PuzzleDifficulty>(
-                  value: notifier.difficulty,
-                  onChanged: (diff) {
-                    if (diff != null) {
-                      notifier.setDifficulty(diff);
-                      setState(() {
-                        _message = '';
-                      });
-                      _controller.clear();
-                    }
-                  },
-                  items: const [
-                    DropdownMenuItem(value: PuzzleDifficulty.easy, child: Text('Easy')),
-                    DropdownMenuItem(value: PuzzleDifficulty.medium, child: Text('Medium')),
-                    DropdownMenuItem(value: PuzzleDifficulty.hard, child: Text('Hard')),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    SizedBox(
+                      height: 32,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<PuzzleDifficulty>(
+                          value: notifier.difficulty,
+                          onChanged: (diff) {
+                            if (diff != null) {
+                              notifier.setDifficulty(diff);
+                              setState(() {
+                                _message = '';
+                              });
+                              _controller.clear();
+                            }
+                          },
+                          items: const [
+                            DropdownMenuItem(
+                              value: PuzzleDifficulty.easy,
+                              child: Text('Yomb Na'),
+                            ),
+                            DropdownMenuItem(
+                              value: PuzzleDifficulty.medium,
+                              child: Text('Bu Yëm'),
+                            ),
+                            DropdownMenuItem(
+                              value: PuzzleDifficulty.hard,
+                              child: Text('Jafe Na'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${notifier.dictionarySize} baat yi',
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
                   ],
                 ),
               );
@@ -247,29 +296,86 @@ class GameScreenState extends State<GameScreen> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    decoration: const InputDecoration(labelText: 'Enter word'),
+                    decoration: const InputDecoration(labelText: 'Bindal fii...'),
+                    onSubmitted: (_) {
+                      final result = notifier.submit(_controller.text);
+                      setState(() {
+                        if (result == SubmitResult.success) {
+                          _message = 'Baax na!';
+                        } else if (result == SubmitResult.alreadyFound) {
+                          _message = 'Baax na (Ba pare)';
+                        } else {
+                          _message = 'Baaxul';
+                        }
+                      });
+                      _controller.clear();
+                    },
                   ),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    final success = notifier.submit(_controller.text);
+                    final result = notifier.submit(_controller.text);
                     setState(() {
-                      _message = success ? 'Baax na!' : 'Invalid';
+                      if (result == SubmitResult.success) {
+                        _message = 'Baax na!';
+                      } else if (result == SubmitResult.alreadyFound) {
+                        _message = 'Baax na (Ba pare)';
+                      } else {
+                        _message = 'Baaxul';
+                      }
                     });
-                    // if (success) _controller.clear();
                     _controller.clear();
                   },
-                  child: const Text('Submit'),
+                  child: const Text('Yoone ko'),
                 ),
               ],
             ),
-            if (_message.isNotEmpty) Text(_message),
+            if (_message.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  _message,
+                  style: TextStyle(
+                    color: _message.startsWith('Baax na') ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
-            Text('Score: ${notifier.score} / ${notifier.totalPossible}'),
-            // show dictionary size for debugging
-            Text('Words loaded: ${notifier.dictionarySize}'),
-            const SizedBox(height: 8),
-            Expanded(child: WordList(words: notifier.foundWords)),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Baax na ( ${notifier.foundWords.length} / ${notifier.totalPossible} )',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Expanded(child: WordList(words: notifier.foundWords)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Baaxul',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Expanded(child: WordList(words: notifier.triedWords)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ];
 
           return Padding(

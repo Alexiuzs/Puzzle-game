@@ -9,11 +9,14 @@ class WordList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (words.isEmpty) {
-      return const Center(child: Text('No words yet.'));
+      return const Center(child: Text('Tus.'));
     }
     return ListView.builder(
       itemCount: words.length,
-      itemBuilder: (_, index) => ListTile(title: Text(words[index])),
+      itemBuilder: (_, index) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2.0),
+        child: Text(words[index]),
+      ),
     );
   }
 }
