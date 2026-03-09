@@ -45,8 +45,9 @@ class PuzzleGenerator {
   /// feature where the user wants a fresh, playable puzzle.
   static Puzzle generateRandom(
     List<String> alphabet,
-    Set<String> wordList,
-  ) {
+    Set<String> wordList, {
+    PuzzleDifficulty difficulty = PuzzleDifficulty.any,
+  }) {
     final rng = Random();
     while (true) {
       // pick 7 distinct letters randomly
@@ -62,7 +63,25 @@ class PuzzleGenerator {
       final letterList = selected.toList();
       final center = letterList[rng.nextInt(letterList.length)];
       final valid = _computeValidWords(letterList, center, wordList);
-      if (valid.isNotEmpty) {
+      
+      bool isMatch = false;
+      final count = valid.length;
+      switch (difficulty) {
+        case PuzzleDifficulty.any:
+          isMatch = count >= 1;
+          break;
+        case PuzzleDifficulty.easy:
+          isMatch = count >= 15;
+          break;
+        case PuzzleDifficulty.medium:
+          isMatch = count >= 7 && count <= 14;
+          break;
+        case PuzzleDifficulty.hard:
+          isMatch = count >= 1 && count <= 6;
+          break;
+      }
+
+      if (isMatch) {
         return Puzzle(
             centerLetter: center, letters: letterList, validWords: valid);
       }

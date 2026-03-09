@@ -20,6 +20,15 @@ class PuzzleNotifier extends ChangeNotifier {
   List<String> _alphabet = [];
   Set<String> _dictionary = {};
 
+  PuzzleDifficulty _difficulty = PuzzleDifficulty.easy;
+  PuzzleDifficulty get difficulty => _difficulty;
+
+  void setDifficulty(PuzzleDifficulty diff) {
+    if (_difficulty == diff) return;
+    _difficulty = diff;
+    refreshPuzzle();
+  }
+
   /// Number of entries in the currently loaded dictionary. Useful for
   /// debugging or displaying to the user.
   int get dictionarySize => _dictionary.length;
@@ -117,10 +126,10 @@ class PuzzleNotifier extends ChangeNotifier {
 
     final oldCenter = _puzzle?.centerLetter;
     // generate a random puzzle that has at least one valid word
-    var newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary);
+    var newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary, difficulty: _difficulty);
     // if by bad luck the center didn't change, try one more time
     if (oldCenter != null && newPuzzle.centerLetter == oldCenter) {
-      newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary);
+      newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary, difficulty: _difficulty);
     }
 
     _puzzle = newPuzzle;
@@ -162,6 +171,29 @@ class GameScreenState extends State<GameScreen> {
       appBar: AppBar(
         title: const Text('Word Puzzle'),
         actions: [
+          Consumer<PuzzleNotifier>(
+            builder: (context, notifier, _) {
+              return DropdownButtonHideUnderline(
+                child: DropdownButton<PuzzleDifficulty>(
+                  value: notifier.difficulty,
+                  onChanged: (diff) {
+                    if (diff != null) {
+                      notifier.setDifficulty(diff);
+                      setState(() {
+                        _message = '';
+                      });
+                      _controller.clear();
+                    }
+                  },
+                  items: const [
+                    DropdownMenuItem(value: PuzzleDifficulty.easy, child: Text('Easy')),
+                    DropdownMenuItem(value: PuzzleDifficulty.medium, child: Text('Medium')),
+                    DropdownMenuItem(value: PuzzleDifficulty.hard, child: Text('Hard')),
+                  ],
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'New puzzle',
