@@ -46,10 +46,12 @@ class PuzzleNotifier extends ChangeNotifier {
       // the alphabet file contains accented characters that won't be present
       // in the default english `alphabet.txt`.
       _alphabet = await AlphabetLoader.loadFromAsset(
-        'alphabets/wolof_alphabet.txt',
+        'assets/alphabets/wolof_alphabet.txt',
       );
       debugPrint('initialize: alphabet loaded (${_alphabet.length} letters)');
-      final words = await WordLoader.loadFromAsset('wordlists/wolof_words.txt');
+      final words = await WordLoader.loadFromAsset(
+        'assets/wordlists/wolof_words.txt',
+      );
       debugPrint('initialize: words asset returned ${words.length} entries');
 
       _dictionary = words;
