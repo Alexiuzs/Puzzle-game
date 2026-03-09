@@ -196,15 +196,19 @@ class GameScreenState extends State<GameScreen> {
           if (puzzle == null) {
             return const Center(child: CircularProgressIndicator());
           }
+          List<String> acceptedLetters = [];
+          acceptedLetters.addAll(puzzle.letters);
+          acceptedLetters.add(puzzle.centerLetter);
 
           Widget wheel = LetterWheel(
             puzzle: puzzle,
             onLetterTap: (l) {
+              if (!acceptedLetters.contains(l)) return;
+
               _controller.text += l;
             },
             onShuffle: notifier.shuffleOuter,
           );
-
           List<Widget> input = [
             Row(
               children: [
@@ -218,9 +222,10 @@ class GameScreenState extends State<GameScreen> {
                   onPressed: () {
                     final success = notifier.submit(_controller.text);
                     setState(() {
-                      _message = success ? 'Good!' : 'Invalid';
+                      _message = success ? 'Baax na!' : 'Invalid';
                     });
-                    if (success) _controller.clear();
+                    // if (success) _controller.clear();
+                    _controller.clear();
                   },
                   child: const Text('Submit'),
                 ),
