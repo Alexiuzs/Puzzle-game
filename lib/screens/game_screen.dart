@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -79,7 +80,7 @@ class PuzzleNotifier extends ChangeNotifier {
       // generate the first puzzle (daily seed)
       final today = DateTime.now();
       final seed = int.parse(DateFormat('yyyyMMdd').format(today));
-      
+
       // We want the starting screen to always have at least 15 valid words.
       int dailySeed = seed;
       while (true) {
@@ -296,7 +297,9 @@ class GameScreenState extends State<GameScreen> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    decoration: const InputDecoration(labelText: 'Bindal fii...'),
+                    decoration: const InputDecoration(
+                      labelText: 'Bindal fii...',
+                    ),
                     onSubmitted: (_) {
                       final result = notifier.submit(_controller.text);
                       setState(() {
@@ -336,7 +339,9 @@ class GameScreenState extends State<GameScreen> {
                 child: Text(
                   _message,
                   style: TextStyle(
-                    color: _message.startsWith('Baax na') ? Colors.green : Colors.red,
+                    color: _message.startsWith('Baax na')
+                        ? Colors.green
+                        : Colors.red,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -376,6 +381,45 @@ class GameScreenState extends State<GameScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 8),
+            if (kDebugMode)
+              Align(
+                alignment: .centerEnd,
+                child: IconButton.filledTonal(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        List<Widget> wordsWidgets = [];
+                        Set<String>? wordsSet = notifier.puzzle?.validWords;
+                        if (wordsSet != null && wordsSet.isNotEmpty) {
+                          for (String word in wordsSet) {
+                            wordsWidgets.add(Text(word));
+                          }
+                        }
+
+                        return AlertDialog(
+                          title: const Text('Jàpple ma!'),
+                          content: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: wordsWidgets,
+                            ),
+                          ),
+                          actions: [
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                  icon: Icon(Icons.help),
+                ),
+              ),
           ];
 
           return Padding(
