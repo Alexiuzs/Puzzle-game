@@ -13,8 +13,10 @@ dependencies:
   flutter:
     sdk: flutter
   provider: ^6.0.0
-  shared_preferences: ^2.0.0
+  shared_preferences: ^2.5.4
   intl: ^0.17.0
+  haptic_feedback: ^0.6.4+3
+  confetti: ^0.8.0
 
 dev_dependencies:
   flutter_test:
