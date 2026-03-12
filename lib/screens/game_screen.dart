@@ -158,17 +158,15 @@ class PuzzleNotifier extends ChangeNotifier {
   }) async {
     final seed = int.parse(DateFormat('yyyyMMdd').format(date));
 
-    // On first load of the day, we can pick a "suggested" difficulty
-    // or just default to Easy as requested by the user.
+    // On first load of the day, we default to the single daily puzzle.
     if (isInitial) {
-      _difficulty = PuzzleDifficulty.easy;
+      // No difficulty to set
     }
 
     _puzzle = PuzzleGenerator.generateDaily(
       seed,
       _alphabet,
       _dictionary,
-      difficulty: _difficulty,
     );
     await _loadSavedState(seed);
     notifyListeners();
@@ -200,10 +198,9 @@ class PuzzleNotifier extends ChangeNotifier {
 
   Future<void> _loadSavedState(int seed) async {
     final prefs = await SharedPreferences.getInstance();
-    // Unique key per date AND difficulty ensures words are remembered separately
-    final diffName = _difficulty.name;
-    final savedFound = prefs.getStringList('found_${seed}_$diffName') ?? [];
-    final savedTried = prefs.getStringList('tried_${seed}_$diffName') ?? [];
+    // Unique key per date ensures words are remembered
+    final savedFound = prefs.getStringList('found_$seed') ?? [];
+    final savedTried = prefs.getStringList('tried_$seed') ?? [];
 
     _found.clear();
     _found.addAll(savedFound);
@@ -221,12 +218,6 @@ class PuzzleNotifier extends ChangeNotifier {
 
   String generateShareText() {
     if (_puzzle == null) return "Wolofle...";
-
-    final levelStr = _difficulty == PuzzleDifficulty.easy
-        ? "Yomb Na"
-        : _difficulty == PuzzleDifficulty.medium
-        ? "Bu Yem"
-        : "Jafe Na";
 
     final percentage = maxPossibleScore > 0
         ? (score / maxPossibleScore * 100).toStringAsFixed(0)
@@ -348,14 +339,6 @@ class GameScreenState extends State<GameScreen> {
                   context.read<ThemeNotifier>().toggleTheme(
                     !context.read<ThemeNotifier>().isDarkMode,
                   );
-                } else if (value.startsWith('diff_')) {
-                  final diffStr = value.split('_')[1];
-                  final diff = PuzzleDifficulty.values.firstWhere(
-                    (e) => e.toString().split('.').last == diffStr,
-                  );
-                  notifier.setDifficulty(diff);
-                  setState(() => _message = '');
-                  _controller.clear();
                 }
               },
               itemBuilder: (context) => [
@@ -381,14 +364,6 @@ class GameScreenState extends State<GameScreen> {
                     ),
                   ),
                 ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  enabled: false,
-                  child: Text(
-                    'Difficulties',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
                 PopupMenuItem(
                   enabled: false,
                   child: Text(
@@ -399,21 +374,6 @@ class GameScreenState extends State<GameScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                CheckedPopupMenuItem(
-                  value: 'diff_easy',
-                  checked: notifier.difficulty == PuzzleDifficulty.easy,
-                  child: const Text('Yomb na (Easy)'),
-                ),
-                CheckedPopupMenuItem(
-                  value: 'diff_medium',
-                  checked: notifier.difficulty == PuzzleDifficulty.medium,
-                  child: const Text('Yëm na (Medium)'),
-                ),
-                CheckedPopupMenuItem(
-                  value: 'diff_hard',
-                  checked: notifier.difficulty == PuzzleDifficulty.hard,
-                  child: const Text('Jafe na (Hard)'),
                 ),
               ],
             );
