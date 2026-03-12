@@ -29,18 +29,8 @@ class PuzzleNotifier extends ChangeNotifier {
   Set<String> _dictionary = {};
   Map<String, String> _definitions = {};
 
-  PuzzleDifficulty _difficulty = PuzzleDifficulty.easy;
-  PuzzleDifficulty get difficulty => _difficulty;
-
   DateTime _currentDate = DateTime.now();
   DateTime get currentDate => _currentDate;
-
-  void setDifficulty(PuzzleDifficulty diff) {
-    if (_difficulty == diff) return;
-    _saveState(); // Save current progress before switching
-    _difficulty = diff;
-    _loadPuzzleForDate(_currentDate, isInitial: false);
-  }
 
   /// Number of entries in the currently loaded dictionary. Useful for
   /// debugging or displaying to the user.
@@ -157,20 +147,13 @@ class PuzzleNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadPuzzleForDate(DateTime date, {bool isInitial = true}) async {
+  Future<void> _loadPuzzleForDate(DateTime date) async {
     final seed = int.parse(DateFormat('yyyyMMdd').format(date));
-    
-    // On first load of the day, we can pick a "suggested" difficulty 
-    // or just default to Easy as requested by the user.
-    if (isInitial) {
-      _difficulty = PuzzleDifficulty.easy;
-    }
     
     _puzzle = PuzzleGenerator.generateDaily(
       seed, 
       _alphabet, 
-      _dictionary, 
-      difficulty: _difficulty,
+      _dictionary,
     );
     await _loadSavedState(seed);
     notifyListeners();
@@ -202,10 +185,8 @@ class PuzzleNotifier extends ChangeNotifier {
 
   Future<void> _loadSavedState(int seed) async {
     final prefs = await SharedPreferences.getInstance();
-    // Unique key per date AND difficulty ensures words are remembered separately
-    final diffName = _difficulty.name;
-    final savedFound = prefs.getStringList('found_${seed}_$diffName') ?? [];
-    final savedTried = prefs.getStringList('tried_${seed}_$diffName') ?? [];
+    final savedFound = prefs.getStringList('found_$seed') ?? [];
+    final savedTried = prefs.getStringList('tried_$seed') ?? [];
     
     _found.clear();
     _found.addAll(savedFound);
@@ -216,20 +197,13 @@ class PuzzleNotifier extends ChangeNotifier {
   Future<void> _saveState() async {
     if (_puzzle == null) return;
     final seed = int.parse(DateFormat('yyyyMMdd').format(_currentDate));
-    final diffName = _difficulty.name;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('found_${seed}_$diffName', _found);
-    await prefs.setStringList('tried_${seed}_$diffName', _triedWords);
+    await prefs.setStringList('found_$seed', _found);
+    await prefs.setStringList('tried_$seed', _triedWords);
   }
 
   String generateShareText() {
     if (_puzzle == null) return "Wolofle...";
-
-    final levelStr = _difficulty == PuzzleDifficulty.easy
-        ? "Yomb Na"
-        : _difficulty == PuzzleDifficulty.medium
-        ? "Bu Yëm"
-        : "Jafe Na";
 
     final percentage = maxPossibleScore > 0
         ? (score / maxPossibleScore * 100).toStringAsFixed(0)
@@ -238,7 +212,7 @@ class PuzzleNotifier extends ChangeNotifier {
     final dateStr = DateFormat('yyyy-MM-dd').format(_currentDate);
 
     // Core stats
-    String share = "Wolofle ($levelStr) - $dateStr\n";
+    String share = "Wolofle - $dateStr\n";
     share += "Score: $score ($percentage%)\n";
     share += "Rank: $currentRank\n";
     share += "Words Found: ${_found.length} / $totalPossible\n\n";
@@ -271,13 +245,11 @@ class PuzzleNotifier extends ChangeNotifier {
     var newPuzzle = PuzzleGenerator.generateRandom(
       _alphabet,
       _dictionary,
-      difficulty: _difficulty,
     );
     if (oldCenter != null && newPuzzle.centerLetter == oldCenter) {
       newPuzzle = PuzzleGenerator.generateRandom(
         _alphabet,
         _dictionary,
-        difficulty: _difficulty,
       );
     }
 
@@ -355,12 +327,6 @@ class GameScreenState extends State<GameScreen> {
                   );
                 } else if (value == 'theme') {
                   context.read<ThemeNotifier>().toggleTheme(!context.read<ThemeNotifier>().isDarkMode);
-                } else if (value.startsWith('diff_')) {
-                  final diffStr = value.split('_')[1];
-                  final diff = PuzzleDifficulty.values.firstWhere((e) => e.toString().split('.').last == diffStr);
-                  notifier.setDifficulty(diff);
-                  setState(() => _message = '');
-                  _controller.clear();
                 }
               },
               itemBuilder: (context) => [
@@ -379,25 +345,9 @@ class GameScreenState extends State<GameScreen> {
                   ),
                 ),
                 const PopupMenuDivider(),
-                const PopupMenuItem(enabled: false, child: Text('Difficulties', style: TextStyle(fontWeight: FontWeight.bold))),
                 PopupMenuItem(
                   enabled: false,
                   child: Text('Baat yi (Total words): ${notifier.totalPossible}', style: const TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.bold)),
-                ),
-                CheckedPopupMenuItem(
-                  value: 'diff_easy',
-                  checked: notifier.difficulty == PuzzleDifficulty.easy,
-                  child: const Text('Yomb Na (Easy)'),
-                ),
-                CheckedPopupMenuItem(
-                  value: 'diff_medium',
-                  checked: notifier.difficulty == PuzzleDifficulty.medium,
-                  child: const Text('Bu Yëm (Medium)'),
-                ),
-                CheckedPopupMenuItem(
-                  value: 'diff_hard',
-                  checked: notifier.difficulty == PuzzleDifficulty.hard,
-                  child: const Text('Jafe Na (Hard)'),
                 ),
               ],
             );
@@ -463,6 +413,12 @@ class GameScreenState extends State<GameScreen> {
                 ),
                 ElevatedButton(
                   onPressed: _handleSubmit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.yellow,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                    textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                   child: const Text('Yoone ko'),
                 ),
               ],
@@ -489,9 +445,9 @@ class GameScreenState extends State<GameScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Baax na ( ${notifier.foundWords.length} / ${notifier.totalPossible} )',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        const Text(
+                          'Baax na',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Expanded(child: WordList(words: notifier.foundWords)),
