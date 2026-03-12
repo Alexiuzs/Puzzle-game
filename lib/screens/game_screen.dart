@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -57,7 +58,7 @@ class PuzzleNotifier extends ChangeNotifier {
       } else {
         s += w.length;
       }
-      
+
       // Check for Wologram (uses all 7 letters)
       if (_puzzle != null) {
         final Set<String> wordLetters = w.runes
@@ -81,7 +82,7 @@ class PuzzleNotifier extends ChangeNotifier {
       } else {
         maxScore += w.length;
       }
-      
+
       final Set<String> wordLetters = w.runes
           .map((r) => String.fromCharCode(r))
           .toSet();
@@ -131,9 +132,13 @@ class PuzzleNotifier extends ChangeNotifier {
       _dictionary = words;
 
       try {
-        final defsJson = await rootBundle.loadString('assets/wordlists/wolof_definitions.json');
+        final defsJson = await rootBundle.loadString(
+          'assets/wordlists/wolof_definitions.json',
+        );
         final Map<String, dynamic> decoded = json.decode(defsJson);
-        _definitions = decoded.map((key, value) => MapEntry(key, value.toString()));
+        _definitions = decoded.map(
+          (key, value) => MapEntry(key, value.toString()),
+        );
       } catch (e) {
         debugPrint('initialize: could not load definitions: $e');
       }
@@ -147,13 +152,23 @@ class PuzzleNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadPuzzleForDate(DateTime date) async {
+  Future<void> _loadPuzzleForDate(
+    DateTime date, {
+    bool isInitial = true,
+  }) async {
     final seed = int.parse(DateFormat('yyyyMMdd').format(date));
-    
+
+    // On first load of the day, we can pick a "suggested" difficulty
+    // or just default to Easy as requested by the user.
+    if (isInitial) {
+      _difficulty = PuzzleDifficulty.easy;
+    }
+
     _puzzle = PuzzleGenerator.generateDaily(
-      seed, 
-      _alphabet, 
+      seed,
+      _alphabet,
       _dictionary,
+      difficulty: _difficulty,
     );
     await _loadSavedState(seed);
     notifyListeners();
@@ -185,9 +200,11 @@ class PuzzleNotifier extends ChangeNotifier {
 
   Future<void> _loadSavedState(int seed) async {
     final prefs = await SharedPreferences.getInstance();
-    final savedFound = prefs.getStringList('found_$seed') ?? [];
-    final savedTried = prefs.getStringList('tried_$seed') ?? [];
-    
+    // Unique key per date AND difficulty ensures words are remembered separately
+    final diffName = _difficulty.name;
+    final savedFound = prefs.getStringList('found_${seed}_$diffName') ?? [];
+    final savedTried = prefs.getStringList('tried_${seed}_$diffName') ?? [];
+
     _found.clear();
     _found.addAll(savedFound);
     _triedWords.clear();
@@ -204,6 +221,12 @@ class PuzzleNotifier extends ChangeNotifier {
 
   String generateShareText() {
     if (_puzzle == null) return "Wolofle...";
+
+    final levelStr = _difficulty == PuzzleDifficulty.easy
+        ? "Yomb Na"
+        : _difficulty == PuzzleDifficulty.medium
+        ? "Bu Yem"
+        : "Jafe Na";
 
     final percentage = maxPossibleScore > 0
         ? (score / maxPossibleScore * 100).toStringAsFixed(0)
@@ -242,15 +265,9 @@ class PuzzleNotifier extends ChangeNotifier {
     if (_alphabet.isEmpty || _dictionary.isEmpty) return;
 
     final oldCenter = _puzzle?.centerLetter;
-    var newPuzzle = PuzzleGenerator.generateRandom(
-      _alphabet,
-      _dictionary,
-    );
+    var newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary);
     if (oldCenter != null && newPuzzle.centerLetter == oldCenter) {
-      newPuzzle = PuzzleGenerator.generateRandom(
-        _alphabet,
-        _dictionary,
-      );
+      newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary);
     }
 
     _puzzle = newPuzzle;
@@ -260,7 +277,8 @@ class PuzzleNotifier extends ChangeNotifier {
   }
 
   String getDefinition(String word) {
-    return _definitions[word.toLowerCase()] ?? "Teggil leeral fii (No definition found)...";
+    return _definitions[word.toLowerCase()] ??
+        "Teggil leeral fii (No definition found)...";
   }
 }
 
@@ -283,7 +301,9 @@ class GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     _controller = TextEditingController();
-    _confettiController = ConfettiController(duration: const Duration(seconds: 1));
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 1),
+    );
     _notifier = context.read<PuzzleNotifier>();
     // fire off initialization
     Timer.run(() async {
@@ -302,7 +322,7 @@ class GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     var size = MediaQuery.sizeOf(context);
 
-    bool wideScreen = size.width > 700 ? true : false;
+    bool wideScreen = size.width > 600 ? true : false;
 
     return Scaffold(
       appBar: AppBar(
@@ -312,10 +332,7 @@ class GameScreenState extends State<GameScreen> {
             return PopupMenuButton<String>(
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Wolofle'),
-                  Icon(Icons.arrow_drop_down),
-                ],
+                children: [Text('Wolofle'), Icon(Icons.arrow_drop_down)],
               ),
               onSelected: (value) async {
                 if (value == 'share') {
@@ -323,10 +340,22 @@ class GameScreenState extends State<GameScreen> {
                   await Clipboard.setData(ClipboardData(text: text));
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Copied results to clipboard!')),
+                    const SnackBar(
+                      content: Text('Copied results to clipboard!'),
+                    ),
                   );
                 } else if (value == 'theme') {
-                  context.read<ThemeNotifier>().toggleTheme(!context.read<ThemeNotifier>().isDarkMode);
+                  context.read<ThemeNotifier>().toggleTheme(
+                    !context.read<ThemeNotifier>().isDarkMode,
+                  );
+                } else if (value.startsWith('diff_')) {
+                  final diffStr = value.split('_')[1];
+                  final diff = PuzzleDifficulty.values.firstWhere(
+                    (e) => e.toString().split('.').last == diffStr,
+                  );
+                  notifier.setDifficulty(diff);
+                  setState(() => _message = '');
+                  _controller.clear();
                 }
               },
               itemBuilder: (context) => [
@@ -334,20 +363,57 @@ class GameScreenState extends State<GameScreen> {
                   value: 'share',
                   child: ListTile(
                     leading: Icon(Icons.share),
-                    title: Text('Yoone ko (Share)'),
+                    title: Text('Séedoo ko (Share)'),
                   ),
                 ),
                 PopupMenuItem(
                   value: 'theme',
                   child: ListTile(
-                    leading: Icon(Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
-                    title: Text(Theme.of(context).brightness == Brightness.dark ? 'Leeral (Light Mode)' : 'Lëndëm (Dark Mode)'),
+                    leading: Icon(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Icons.light_mode
+                          : Icons.dark_mode,
+                    ),
+                    title: Text(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? 'Melo bu woyof (Light Mode)'
+                          : 'Melo bu lëndëm (Dark Mode)',
+                    ),
                   ),
                 ),
                 const PopupMenuDivider(),
+                const PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    'Difficulties',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
                 PopupMenuItem(
                   enabled: false,
-                  child: Text('Baat yi (Total words): ${notifier.totalPossible}', style: const TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Baat yi (Total words): ${notifier.totalPossible}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.amber,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                CheckedPopupMenuItem(
+                  value: 'diff_easy',
+                  checked: notifier.difficulty == PuzzleDifficulty.easy,
+                  child: const Text('Yomb na (Easy)'),
+                ),
+                CheckedPopupMenuItem(
+                  value: 'diff_medium',
+                  checked: notifier.difficulty == PuzzleDifficulty.medium,
+                  child: const Text('Yëm na (Medium)'),
+                ),
+                CheckedPopupMenuItem(
+                  value: 'diff_hard',
+                  checked: notifier.difficulty == PuzzleDifficulty.hard,
+                  child: const Text('Jafe na (Hard)'),
                 ),
               ],
             );
@@ -391,6 +457,7 @@ class GameScreenState extends State<GameScreen> {
               if (!acceptedLetters.contains(l)) return;
 
               _controller.text += l;
+              setState(() {});
             },
             onShuffle: notifier.shuffleOuter,
           );
@@ -400,26 +467,33 @@ class GameScreenState extends State<GameScreen> {
                 Expanded(
                   child: ShakeWidget(
                     key: _shakeKey,
-                    child: TextField(
-                      controller: _controller,
-                      decoration: const InputDecoration(
-                        labelText: 'Bindal fii...',
+                    // version where the text is only changeable from the wheel
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        _controller.text,
+                        textAlign: .center,
+
+                        style: Theme.of(context).textTheme.displayMedium,
                       ),
-                      onSubmitted: (_) {
-                        _handleSubmit();
-                      },
                     ),
+
+                    // original version
+                    // TextField(
+                    //   controller: _controller,
+                    //   decoration: const InputDecoration(
+                    //     labelText: 'Bindal fii...',
+                    //   ),
+                    //   onSubmitted: (_) {
+                    //     _handleSubmit();
+                    //   },
+                    // ),
                   ),
                 ),
+                SizedBox(width: 10),
                 ElevatedButton(
                   onPressed: _handleSubmit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.yellow,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                    textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  child: const Text('Yoone ko'),
+                  child: const Text('Yónni ko'),
                 ),
               ],
             ),
@@ -477,29 +551,29 @@ class GameScreenState extends State<GameScreen> {
             alignment: Alignment.topCenter,
             children: [
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: wideScreen
                     ? Row(
                         children: [
-                          Expanded(child: wheel),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: wheel,
+                            ),
+                          ),
                           const SizedBox(width: 16),
                           SizedBox(
-                            width: min(size.width / 2, 400),
+                            width: min(size.width / 2, 250),
                             child: Column(children: input),
                           ),
                         ],
                       )
-                    : SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            wheel,
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              height: 300, 
-                              child: Column(children: input),
-                            ),
-                          ],
-                        ),
+                    : Column(
+                        children: [
+                          wheel,
+                          const SizedBox(height: 16),
+                          Expanded(child: Column(children: input)),
+                        ],
                       ),
               ),
               if (_wologramBanner.isNotEmpty)
@@ -510,14 +584,39 @@ class GameScreenState extends State<GameScreen> {
                     decoration: BoxDecoration(
                       color: Colors.amber,
                       borderRadius: BorderRadius.circular(15),
-                      boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black.withOpacity(0.5))],
+                      boxShadow: [
+                        BoxShadow(
+                          blurRadius: 10,
+                          color: Colors.black.withAlpha(122),
+                        ),
+                      ],
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('WOLOGRAM!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black)),
-                        Text(_wologramBanner.toUpperCase(), style: const TextStyle(fontSize: 18, color: Colors.black)),
-                        const Text('+10 POINTS BONUS!', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black)),
+                        const Text(
+                          'WOLOGRAM!',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        Text(
+                          _wologramBanner.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const Text(
+                          '+10 POINTS BONUS!',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -539,6 +638,46 @@ class GameScreenState extends State<GameScreen> {
                   Colors.amber,
                 ],
               ),
+              // Reveal all possible words - shown when running in debug mode only
+              if (kDebugMode)
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: IconButton.filledTonal(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          List<Widget> wordsWidgets = [];
+                          Set<String>? wordsSet = notifier.puzzle?.validWords;
+                          if (wordsSet != null && wordsSet.isNotEmpty) {
+                            for (String word in wordsSet) {
+                              wordsWidgets.add(Text(word));
+                            }
+                          }
+
+                          return AlertDialog(
+                            title: const Text('Jàpple ma!'),
+                            content: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: wordsWidgets,
+                              ),
+                            ),
+                            actions: [
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    icon: Icon(Icons.help),
+                  ),
+                ),
             ],
           );
         },
@@ -551,9 +690,11 @@ class GameScreenState extends State<GameScreen> {
 
     // Trigger haptics and animations based on the result
     if (result == SubmitResult.success) {
-      final isWolo = _notifier.isWologram(_controller.text.trim().toLowerCase());
+      final isWolo = _notifier.isWologram(
+        _controller.text.trim().toLowerCase(),
+      );
       _confettiController.play();
-      
+
       if (isWolo) {
         // Wologram Celebration
         await Haptics.vibrate(HapticsType.heavy);
