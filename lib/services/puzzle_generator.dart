@@ -1,20 +1,23 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 
 import '../models/puzzle.dart';
 
 class PuzzleGenerator {
   /// Generate a daily puzzle based on [dateSeed].
-  static Puzzle generateDaily(
+  static Future<Puzzle> generateDaily(
     int dateSeed,
     List<String> alphabet,
     Set<String> wordList, {
     required PuzzleDifficulty difficulty,
-  }) {
-    // We want 3 unique puzzles per day. 
+  }) async {
+    debugPrint('generateDaily: starting');
+    // We want 3 unique puzzles per day.
     // We use a combined seed based on date and difficulty to ensure consistency.
     var seed = dateSeed + (difficulty.index * 1000);
-    
+
     while (true) {
+      debugPrint('generateDaily: generating puzzle');
       final rng = Random(seed);
       final letters = List<String>.from(alphabet)..shuffle(rng);
 
@@ -23,7 +26,7 @@ class PuzzleGenerator {
         if (selected.length >= 7) break;
         selected.add(l);
       }
-      
+
       if (selected.length < 7) {
         throw Exception('Alphabet too small to select 7 unique letters');
       }
@@ -33,14 +36,14 @@ class PuzzleGenerator {
         final centerIndex = rng.nextInt(letterList.length);
         final center = letterList[centerIndex];
         final valid = _computeValidWords(letterList, center, wordList);
-        
+
         // Requirements:
         // 1. Must have at least one Wologram
         // 2. Must match difficulty word count thresholds
         if (_hasWologram(valid, letterList)) {
           bool isMatch = false;
           final count = valid.length;
-          
+
           switch (difficulty) {
             case PuzzleDifficulty.easy:
               isMatch = count >= 70; // User requested at least 70 for Easy
@@ -57,7 +60,11 @@ class PuzzleGenerator {
           }
 
           if (isMatch) {
-            return Puzzle(centerLetter: center, letters: letterList, validWords: valid);
+            return Puzzle(
+              centerLetter: center,
+              letters: letterList,
+              validWords: valid,
+            );
           }
         }
       }
@@ -94,16 +101,16 @@ class PuzzleGenerator {
       if (selected.length < 7) {
         throw Exception('Alphabet too small');
       }
-      
+
       final letterList = selected.toList();
       if (!_isValidLetterSet(letterList)) continue;
 
       final center = letterList[rng.nextInt(letterList.length)];
       final valid = _computeValidWords(letterList, center, wordList);
-      
+
       bool isMatch = false;
       final count = valid.length;
-      
+
       switch (difficulty) {
         case PuzzleDifficulty.any:
           isMatch = count >= 1;
@@ -123,14 +130,19 @@ class PuzzleGenerator {
       // Fallback: if we haven't found a match in 1000 attempts, relax thresholds slightly
       // but only for random puzzles to prevent infinite loops if the dictionary is small.
       if (!isMatch && attempts > 1000) {
-          if (difficulty == PuzzleDifficulty.easy && count >= 55) isMatch = true;
-          if (difficulty == PuzzleDifficulty.medium && count >= 35) isMatch = true;
-          if (difficulty == PuzzleDifficulty.hard && count >= 15) isMatch = true;
+        if (difficulty == PuzzleDifficulty.easy && count >= 55) isMatch = true;
+        if (difficulty == PuzzleDifficulty.medium && count >= 35) {
+          isMatch = true;
+        }
+        if (difficulty == PuzzleDifficulty.hard && count >= 15) isMatch = true;
       }
 
       if (isMatch) {
         return Puzzle(
-            centerLetter: center, letters: letterList, validWords: valid);
+          centerLetter: center,
+          letters: letterList,
+          validWords: valid,
+        );
       }
     }
   }

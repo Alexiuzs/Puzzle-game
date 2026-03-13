@@ -20,6 +20,13 @@
       "request": "launch",
       "type": "dart",
       "flutterMode": "release"
+    },
+    {
+      // this runs with no args and pre-processes the data
+      "name": "puzzle prebuild",
+      "program": "prebuild/bin/prebuild.dart",
+      "request": "launch",
+      "type": "dart"
     }
   ]
 }

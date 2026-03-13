@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/game_screen.dart';
+import 'providers/puzzle_notifier.dart';
 import 'theme_notifier.dart';
 
 void main() {
