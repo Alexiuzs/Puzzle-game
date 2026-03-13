@@ -188,6 +188,21 @@ class GameScreenState extends State<GameScreen> {
 
           return Consumer<PuzzleNotifier>(
             builder: (context, notifier, _) {
+              if (notifier.hasHashMismatch) {
+                return const Center(
+                  child: Text(
+                    'Proverbs file has been changed but index not updated\n\nQuit the app, run prebuild script and run again',
+                    textAlign: .center,
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+
+                      fontSize: 18,
+                    ),
+                  ),
+                );
+              }
+
               final puzzle = notifier.puzzle;
               if (puzzle == null) {
                 // return const Center(child: CircularProgressIndicator());

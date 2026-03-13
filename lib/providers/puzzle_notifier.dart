@@ -23,6 +23,8 @@ class PuzzleNotifier extends ChangeNotifier {
   Map<String, String> _definitions = {};
   final ProverbsService _proverbsService = ProverbsService();
 
+  bool get hasHashMismatch => _proverbsService.hasHashMismatch;
+
   PuzzleDifficulty _difficulty = PuzzleDifficulty.easy;
   PuzzleDifficulty get difficulty => _difficulty;
 
@@ -174,7 +176,7 @@ class PuzzleNotifier extends ChangeNotifier {
       _difficulty = PuzzleDifficulty.easy;
     }
 
-    _puzzle = PuzzleGenerator.generateDaily(
+    _puzzle = await PuzzleGenerator.generateDaily(
       seed,
       _alphabet,
       _dictionary,

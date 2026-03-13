@@ -2667,12 +2667,8 @@ Nxarit ba laa dëër nu takk ko ciw naaj.
 Ñaar a di yëf di jàmm ji àddina : ngor ak njullit. 
 Ñaar di def jàmm ca àdduna : ngor ak njullit. 
 Ñaar a mën kenn, te ñett du bëre : lii, ku ñu sot nga xam ko. 
-Ñaar a ngi nii ñu xam :
-- Ki xam, te xam ne xam na,
-- Ki xam, te xamul ne xam na. 
-Ñaar a ngi nii ñu xamul :
-- Ki xamul, te xam ne xamul,
-- Ki xamul, te xamul ne xamul. 
+Ñaar a ngi nii ñu xam : Ki xam, te xam ne xam na, Ki xam, te xamul ne xam na. 
+Ñaar a ngi nii ñu xamul : Ki xamul, te xam ne xamul, Ki xamul, te xamul ne xamul. 
 Ñaar ñu bokku yoon ay dëggantey tànk. 
 Ñaar ñu gudd-bakkan duñu mëna fóonante. 
 Ñaar xam nañ, ñett a xamul. 

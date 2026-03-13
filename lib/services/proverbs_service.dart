@@ -3,11 +3,11 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:crypto/crypto.dart';
 
 // Top-level function so it can be passed to compute()
-Map<String, List<int>> _parseIndex(String jsonString) {
-  final Map<String, dynamic> decoded = json.decode(jsonString);
-  return decoded.map((k, v) => MapEntry(k, List<int>.from(v)));
+Map<String, dynamic> _parseIndexJson(String jsonString) {
+  return json.decode(jsonString);
 }
 
 // Top-level function so it can be passed to compute()
@@ -19,9 +19,11 @@ class ProverbsService {
   List<String> _proverbs = [];
   Map<String, List<int>> _index = {};
   bool _initialized = false;
+  bool _hashMismatch = false;
   final _random = Random();
 
   bool get isInitialized => _initialized;
+  bool get hasHashMismatch => _hashMismatch;
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -38,9 +40,25 @@ class ProverbsService {
       final indexString = await rootBundle.loadString(
         'assets/proverbs/index.json',
       );
-      
-      // Run json parsing in a background isolate
-      _index = await compute(_parseIndex, indexString);
+
+      final Map<String, dynamic> decodedData = _parseIndexJson(indexString);
+
+      final String storedHash = decodedData['hash'] as String;
+      final Map<String, dynamic> rawIndex =
+          decodedData['index'] as Map<String, dynamic>;
+
+      // Convert dynamic map to Map<String, List<int>>
+      _index = rawIndex.map(
+        (key, value) => MapEntry(key, List<int>.from(value)),
+      );
+
+      // Verify the MD5 hash
+      final bytes = const Utf8Encoder().convert(proverbsString);
+      final computedHash = md5.convert(bytes).toString();
+
+      if (computedHash != storedHash) {
+        _hashMismatch = true;
+      }
 
       _initialized = true;
     } catch (e) {

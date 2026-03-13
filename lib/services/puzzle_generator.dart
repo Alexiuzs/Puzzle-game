@@ -5,19 +5,19 @@ import '../models/puzzle.dart';
 
 class PuzzleGenerator {
   /// Generate a daily puzzle based on [dateSeed].
-  static Puzzle generateDaily(
+  static Future<Puzzle> generateDaily(
     int dateSeed,
     List<String> alphabet,
     Set<String> wordList, {
     required PuzzleDifficulty difficulty,
-  }) {
+  }) async {
     debugPrint('generateDaily: starting');
     // We want 3 unique puzzles per day.
     // We use a combined seed based on date and difficulty to ensure consistency.
     var seed = dateSeed + (difficulty.index * 1000);
 
     while (true) {
-      debugPrint('generateDaily: generating puzzle with seed $seed');
+      debugPrint('generateDaily: generating puzzle');
       final rng = Random(seed);
       final letters = List<String>.from(alphabet)..shuffle(rng);
 
@@ -131,8 +131,9 @@ class PuzzleGenerator {
       // but only for random puzzles to prevent infinite loops if the dictionary is small.
       if (!isMatch && attempts > 1000) {
         if (difficulty == PuzzleDifficulty.easy && count >= 55) isMatch = true;
-        if (difficulty == PuzzleDifficulty.medium && count >= 35)
+        if (difficulty == PuzzleDifficulty.medium && count >= 35) {
           isMatch = true;
+        }
         if (difficulty == PuzzleDifficulty.hard && count >= 15) isMatch = true;
       }
 

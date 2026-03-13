@@ -18,6 +18,7 @@ dependencies:
   haptic_feedback: ^0.6.4+3
   confetti: ^0.8.0
   hive: ^2.2.3
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
