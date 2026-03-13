@@ -53,7 +53,9 @@ class ProverbsService {
       );
 
       // Verify the MD5 hash
-      final bytes = const Utf8Encoder().convert(proverbsString);
+      // Ensure we normalize CRLF to LF in case Git checked out CRLF locally, but the asset bundle loads LF
+      final normalizedProverbs = proverbsString.replaceAll('\r\n', '\n').trim();
+      final bytes = const Utf8Encoder().convert(normalizedProverbs);
       final computedHash = md5.convert(bytes).toString();
 
       if (computedHash != storedHash) {
