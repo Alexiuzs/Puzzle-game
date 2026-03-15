@@ -9,19 +9,22 @@ class PuzzleGenerator {
     List<String> alphabet,
     Set<String> wordList,
   ) {
-    // Single fixed puzzle per day.
-    var seed = dateSeed;
-    
+    // Multiply date by a large prime so each date has its own
+    // non-overlapping seed sequence. Two dates that are 1 apart
+    // (e.g. 20260312 vs 20260313) produce seeds ~100 000 apart,
+    // so their "retry" sequences never collide.
+    var attempt = 0;
     while (true) {
+      final seed = dateSeed * 100003 + attempt;
       final rng = Random(seed);
-      final letters = List<String>.from(alphabet)..shuffle(rng);
+      final shuffledAlphabet = List<String>.from(alphabet)..shuffle(rng);
 
       final selected = <String>{};
-      for (var l in letters) {
+      for (var l in shuffledAlphabet) {
         if (selected.length >= 7) break;
         selected.add(l);
       }
-      
+
       if (selected.length < 7) {
         throw Exception('Alphabet too small to select 7 unique letters');
       }
@@ -31,15 +34,19 @@ class PuzzleGenerator {
         final centerIndex = rng.nextInt(letterList.length);
         final center = letterList[centerIndex];
         final valid = _computeValidWords(letterList, center, wordList);
-        
+
         // Requirements:
         // 1. Must have at least one Wologram
         // 2. Must have at least 50 words
         if (valid.length >= 50 && _hasWologram(valid, letterList)) {
-          return Puzzle(centerLetter: center, letters: letterList, validWords: valid);
+          return Puzzle(
+            centerLetter: center,
+            letters: letterList,
+            validWords: valid,
+          );
         }
       }
-      seed++;
+      attempt++;
     }
   }
 

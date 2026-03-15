@@ -120,6 +120,24 @@ class PuzzleNotifier extends ChangeNotifier {
 
   int get totalPossible => _puzzle?.totalWords ?? 0;
 
+  double get progressPercentage {
+    if (totalPossible == 0) return 0.0;
+    return _found.length / totalPossible;
+  }
+
+  List<String> getHints() {
+    if (_puzzle == null) return [];
+    
+    // Get all valid words that haven't been found yet
+    final remaining = _puzzle!.validWords.where((w) => !_found.contains(w)).toList();
+    
+    // Extract first letters of remaining words and remove duplicates
+    final hints = remaining.map((w) => w.substring(0, 1).toUpperCase()).toSet().toList();
+    hints.sort();
+    
+    return hints;
+  }
+
   Future<void> initialize() async {
     debugPrint('initialize: beginning');
     try {
@@ -286,6 +304,7 @@ class GameScreenState extends State<GameScreen> {
   String _message = '';
   String _wologramBanner = '';
   final GlobalKey<ShakeWidgetState> _shakeKey = GlobalKey<ShakeWidgetState>();
+  final GlobalKey<LetterWheelState> _wheelKey = GlobalKey<LetterWheelState>();
   late ConfettiController _confettiController;
 
   @override
@@ -380,6 +399,39 @@ class GameScreenState extends State<GameScreen> {
           },
         ),
         actions: [
+          Consumer<PuzzleNotifier>(
+            builder: (context, notifier, _) {
+              final canHint = notifier.progressPercentage >= 0.25;
+              return IconButton(
+                icon: const Icon(Icons.lightbulb_outline),
+                tooltip: canHint ? 'Hints' : 'Find 25% of words to unlock hints',
+                onPressed: canHint
+                    ? () {
+                        final hints = notifier.getHints();
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Indi yi (Hint Letters)'),
+                            content: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: hints
+                                  .map((h) => Chip(label: Text(h)))
+                                  .toList(),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Baax na'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    : null,
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_today),
             tooltip: 'Choose date',
@@ -401,8 +453,21 @@ class GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
-      body: Consumer<PuzzleNotifier>(
-        builder: (context, notifier, _) {
+      body: Column(
+        children: [
+          Consumer<PuzzleNotifier>(
+            builder: (context, notifier, _) {
+              return LinearProgressIndicator(
+                value: notifier.progressPercentage,
+                backgroundColor: Colors.grey[200],
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+                minHeight: 8,
+              );
+            },
+          ),
+          Expanded(
+            child: Consumer<PuzzleNotifier>(
+              builder: (context, notifier, _) {
           final puzzle = notifier.puzzle;
           if (puzzle == null) {
             return const Center(child: CircularProgressIndicator());
@@ -412,52 +477,93 @@ class GameScreenState extends State<GameScreen> {
           acceptedLetters.add(puzzle.centerLetter);
 
           Widget wheel = LetterWheel(
+            key: _wheelKey,
             puzzle: puzzle,
             onLetterTap: (l) {
               if (!acceptedLetters.contains(l)) return;
-
               _controller.text += l;
               setState(() {});
             },
-            onShuffle: notifier.shuffleOuter,
           );
           List<Widget> input = [
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Erase last letter button
+                IconButton.filled(
+                  onPressed: () {
+                    if (_controller.text.isNotEmpty) {
+                      // Remove last character (handles multi-byte Wolof characters)
+                      final chars = _controller.text.characters;
+                      setState(() {
+                        _controller.text = chars.take(chars.length - 1).toString();
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.backspace_outlined),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.grey.withValues(alpha: 0.2),
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  tooltip: 'Erase last letter',
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: ShakeWidget(
                     key: _shakeKey,
-                    // version where the text is only changeable from the wheel
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        _controller.text,
-                        textAlign: .center,
-
-                        style: Theme.of(context).textTheme.displayMedium,
+                        _controller.text.isEmpty ? '...' : _controller.text,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                          color: _controller.text.isEmpty
+                              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)
+                              : null,
+                        ),
                       ),
                     ),
-
-                    // original version
-                    // TextField(
-                    //   controller: _controller,
-                    //   decoration: const InputDecoration(
-                    //     labelText: 'Bindal fii...',
-                    //   ),
-                    //   onSubmitted: (_) {
-                    //     _handleSubmit();
-                    //   },
-                    // ),
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 8),
+                // Submit button
                 ElevatedButton(
                   onPressed: _handleSubmit,
-                  child: const Text('Yónni ko'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Yónni ko',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
-            if (_message.isNotEmpty)
+            // Shuffle button above submit row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    _wheelKey.currentState?.triggerShuffle(
+                      notifier.shuffleOuter,
+                    );
+                  },
+                  icon: const Icon(Icons.cached, size: 16),
+                  label: const Text('Yëngal (Shuffle)'),
+                  style: TextButton.styleFrom(
+                    foregroundColor:
+                        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Text(
@@ -635,15 +741,18 @@ class GameScreenState extends State<GameScreen> {
                         },
                       );
                     },
-                    icon: Icon(Icons.help),
+                    icon: const Icon(Icons.help),
                   ),
                 ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
-    );
-  }
+    ],
+  ),
+);
+}
 
   Future<void> _handleSubmit() async {
     final result = _notifier.submit(_controller.text);
