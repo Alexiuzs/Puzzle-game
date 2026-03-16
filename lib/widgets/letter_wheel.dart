@@ -36,9 +36,10 @@ class LetterWheelState extends State<LetterWheel>
       vsync: this,
       duration: const Duration(milliseconds: 650),
     );
-    _rotation = Tween<double>(begin: 0, end: 2 * pi).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _rotation = Tween<double>(
+      begin: 0,
+      end: 2 * pi,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     // Swap letters at the midpoint of the animation
     _controller.addListener(() {
@@ -75,15 +76,13 @@ class LetterWheelState extends State<LetterWheel>
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHigh
-            .withValues(alpha: 0.5),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final size =
-              min(constraints.maxWidth, constraints.maxHeight) * 0.9;
+          final size = min(constraints.maxWidth, constraints.maxHeight) * 0.9;
           final circleSize = min(size / 3.2, 110.0);
           final orbitRadius = circleSize * 1.15;
           final center = Offset(size / 2, size / 2);
@@ -105,15 +104,10 @@ class LetterWheelState extends State<LetterWheel>
                         final angle = baseAngle + _rotation.value;
                         final dx = center.dx + orbitRadius * cos(angle);
                         final dy = center.dy + orbitRadius * sin(angle);
-                        // Cycle through Senegal flag colors: green, yellow, red
-                        final flagColors = [
-                          Colors.green,
-                          Colors.yellow,
-                          Colors.red,
-                        ];
-                        final color = flagColors[i % 3];
+                        // Standard background for outer circles: green
+                        const color = Colors.green;
                         final gradient = LinearGradient(
-                          colors: [color.withOpacity(0.9), color],
+                          colors: [color.withValues(alpha: 0.9), color],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         );
