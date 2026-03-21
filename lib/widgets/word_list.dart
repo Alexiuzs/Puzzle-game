@@ -26,25 +26,8 @@ class WordList extends StatelessWidget {
 
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 2.0),
-          child: Tooltip(
-            message: definition,
-            triggerMode: TooltipTriggerMode.tap,
-            showDuration: const Duration(seconds: 3),
-            padding: const EdgeInsets.all(12),
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.secondaryContainer.withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-            ),
-            textStyle: TextStyle(
-              color: Theme.of(context).colorScheme.onSecondaryContainer,
-              fontSize: 14,
-            ),
+          child: GestureDetector(
+            onTap: () => notifier.setActiveDefinition(word, definition),
             child: Text(
               word,
               style: const TextStyle(

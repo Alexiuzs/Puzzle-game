@@ -1,5 +1,3 @@
-enum PuzzleDifficulty { any, easy, medium, hard }
-
 class Puzzle {
   final String centerLetter;
   final List<String> letters; // includes center and outer letters
