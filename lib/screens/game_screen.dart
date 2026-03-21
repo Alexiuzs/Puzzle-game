@@ -1,25 +1,19 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:confetti/confetti.dart';
 
 import '../models/puzzle.dart';
-import '../services/alphabet_loader.dart';
-import '../services/word_loader.dart';
-import '../services/puzzle_generator.dart';
-import '../services/word_validator.dart';
 import '../widgets/letter_wheel.dart';
 import '../widgets/word_list.dart';
 import '../widgets/shake_widget.dart';
 import '../theme_notifier.dart';
+import '../providers/puzzle_notifier.dart';
 
 enum SubmitResult { success, alreadyFound, invalid }
 
@@ -333,6 +327,8 @@ class GameScreenState extends State<GameScreen> {
   final GlobalKey<LetterWheelState> _wheelKey = GlobalKey<LetterWheelState>();
   late ConfettiController _confettiController;
 
+  late Future<void> _initFuture;
+
   @override
   void initState() {
     super.initState();
@@ -341,10 +337,8 @@ class GameScreenState extends State<GameScreen> {
       duration: const Duration(seconds: 1),
     );
     _notifier = context.read<PuzzleNotifier>();
-    // fire off initialization
-    Timer.run(() async {
-      await _notifier.initialize();
-    });
+    // fire off initialization and store the future
+    _initFuture = _notifier.initialize();
   }
 
   @override

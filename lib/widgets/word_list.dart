@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../screens/game_screen.dart';
+import '../providers/puzzle_notifier.dart';
 
 /// A simple scrolling list of words the user has found, with definition tooltips.
 class WordList extends StatelessWidget {
@@ -19,8 +19,11 @@ class WordList extends StatelessWidget {
       itemCount: words.length,
       itemBuilder: (_, index) {
         final word = words[index];
-        final definition = notifier.getDefinition(word);
-        
+        // definition service version
+        // final definition = notifier.getDefinition(word);
+        //proverb service version
+        final definition = notifier.getProverb(word);
+
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 2.0),
           child: GestureDetector(

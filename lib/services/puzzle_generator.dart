@@ -1,10 +1,11 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 
 import '../models/puzzle.dart';
 
 class PuzzleGenerator {
   /// Generate a daily puzzle based on [dateSeed].
-  static Puzzle generateDaily(
+  static Future<Puzzle> generateDaily(
     int dateSeed,
     List<String> alphabet,
     Set<String> wordList,
