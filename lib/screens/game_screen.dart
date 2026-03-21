@@ -579,8 +579,8 @@ class GameScreenState extends State<GameScreen> {
                             horizontal: 16,
                             vertical: 12,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
                           ),
                         ),
                         child: const Text(
@@ -850,12 +850,50 @@ class GameScreenState extends State<GameScreen> {
                                   ],
                                 ),
                                 const Divider(),
-                                Text(
-                                  notifier.activeDefinition!,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Theme.of(context).colorScheme.onSecondaryContainer,
-                                  ),
+                                Builder(
+                                  builder: (context) {
+                                    final defText = notifier.activeDefinition!;
+                                    final proverbMatch = RegExp(r"(\s'.*'\s\(Xam-Xamu Suleymaan Saar.*)$");
+                                    final match = proverbMatch.firstMatch(defText);
+
+                                    if (match != null) {
+                                      final proverb = match.group(1)!.trim();
+                                      final definition = defText.substring(0, match.start).trim();
+                                      
+                                      return Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (definition.isNotEmpty)
+                                            Text(
+                                              definition,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                              ),
+                                            ),
+                                          if (definition.isNotEmpty && proverb.isNotEmpty)
+                                            const SizedBox(height: 8),
+                                          if (proverb.isNotEmpty)
+                                            Text(
+                                              proverb,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontStyle: FontStyle.italic,
+                                                color: Theme.of(context).colorScheme.onSecondaryContainer.withValues(alpha: 0.9),
+                                              ),
+                                            ),
+                                        ],
+                                      );
+                                    } else {
+                                      return Text(
+                                        defText,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                        ),
+                                      );
+                                    }
+                                  },
                                 ),
                               ],
                             ),
