@@ -1,4 +1,4 @@
-name: word_puzzle
+name: wure_baat
 
 description: A language-agnostic word puzzle game inspired by Spelling Bee.
 
@@ -21,7 +21,15 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: ^2.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/Icon1.png"
+  adaptive_icon_background: "#FFFFFF" # Using white as a safe default
+  adaptive_icon_foreground: "assets/Icon1.png"
 
 flutter:
   uses-material-design: true
