@@ -1,2 +1,3 @@
-A sample command-line application with an entrypoint in `bin/`, library code
-in `lib/`, and example unit test in `test/`.
+`flutter pub get` rather than `dart pub get`
+
+`flutter pub run prebuild:test` rather than `dart run prebuild:test`

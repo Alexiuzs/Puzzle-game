@@ -3,31 +3,74 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:csv/csv.dart';
 
-//
+void test() {
+  print('this is the exampled');
+}
 
 // wolof proverbs
-// TODO index for Solomon Proverbs
 void createWordlist() async {
-  // Use absolute paths to be safe, or relative to the project root.
-  // The prebuild package execution context might vary depending on how it's called.
-  // But running `dart run prebuild/bin/generate_index.dart` from the project root will have `.` as the root.
-  final proverbsPath = '../assets/proverbs/proverbs.txt';
-  final indexPath = '../assets/proverbs/index.json';
+  // existing wordlists
+  // from wolKYG Paratext project
+  final wolKyDefPath = '../assets/wolKYG.csv';
+  final wolKyFile = File(wolKyDefPath);
+  if (!await wolKyFile.exists()) {
+    print('File not found: $wolKyDefPath');
+    return;
+  }
+  final List<List<dynamic>> rows = await wolKyFile
+      .openRead()
+      .transform(utf8.decoder)
+      .transform(csv.decoder)
+      .toList();
 
-  final file = File(proverbsPath);
-  if (!await file.exists()) {
-    print('File not found: $proverbsPath');
+  // Alex AI created and other sources
+  final otherDefPath = '../assets/definitions.csv';
+  final otherFile = File(otherDefPath);
+  if (!await otherFile.exists()) {
+    print('File not found: $otherDefPath');
     return;
   }
 
-  // Normalize string for consistent hashing
-  final proverbsString = await file.readAsString();
-  final normalizedProverbs = proverbsString.replaceAll('\r\n', '\n').trim();
-  final bytes = const Utf8Encoder().convert(normalizedProverbs);
-  final md5Hash = md5.convert(bytes).toString();
+  // post wolKYG from translation team
+  final translatorDefPath = '../assets/translator.csv';
+  final translatorFile = File(translatorDefPath);
+  if (!await translatorFile.exists()) {
+    print('File not found: $translatorDefPath');
+    return;
+  }
 
-  final lines = proverbsString.split(RegExp(r'\r?\n'));
+  // suffix list
+  final suffixPath = '../assets/suffix_list.csv';
+  final suffixFile = File(suffixPath);
+  if (!await suffixFile.exists()) {
+    print('File not found: $suffixPath');
+    return;
+  }
+
+  // proverbs
+  final wolofNjaayPath = '../assets/proverbs/wolof_njaay.txt';
+  final wolofNjaayFile = File(wolofNjaayPath);
+  if (!await wolofNjaayFile.exists()) {
+    print('File not found: $wolofNjaayPath');
+    return;
+  }
+
+  final solomonPath = '../assets/proverbs/solomon.csv';
+  final solomonFile = File(solomonPath);
+  if (!await solomonFile.exists()) {
+    print('File not found: $solomonPath');
+    return;
+  }
+
+  // to be generated
+  final wordlistPath = '../assets/generated/wordlist.json';
+  final hashPath = '../assets/generated/hash.json';
+
+  final wolofNjaayString = await wolofNjaayFile.readAsString();
+
+  final lines = wolofNjaayString.split(RegExp(r'\r?\n'));
   final Map<String, List<int>> index = {};
 
   for (int i = 0; i < lines.length; i++) {
@@ -51,19 +94,36 @@ void createWordlist() async {
     }
   }
 
-  final outFile = File(indexPath);
+  final outFile = File(wordlistPath);
   // Ensure the directory exists
   if (!await outFile.parent.exists()) {
     await outFile.parent.create(recursive: true);
   }
 
   // Prepare final JSON structure
-  final outputData = {'hash': md5Hash, 'index': index};
+  final outputData = {'index': index};
 
   // Convert to JSON with nice formatting (optional, but requested format seemed standard)
   final encoder = JsonEncoder.withIndent('  ');
   await outFile.writeAsString(encoder.convert(outputData));
   print('Successfully processed ${lines.length} lines.');
-  print('Hash: $md5Hash');
   print('Index saved to ${outFile.path}');
+
+  // hash
+  final bytes = const Utf8Encoder().convert(wolofNjaayString);
+  final md5Hash = md5.convert(bytes).toString();
+
+  final hashFile = File(hashPath);
+  // Ensure the directory exists
+  if (!await hashFile.parent.exists()) {
+    await hashFile.parent.create(recursive: true);
+  }
+
+  // Prepare final JSON structure
+  final hashData = {'hash': md5Hash};
+
+  // Convert to JSON with nice formatting (optional, but requested format seemed standard)
+  final hashEncoder = JsonEncoder.withIndent('  ');
+  await hashFile.writeAsString(hashEncoder.convert(hashData));
+  print('Hash saved to ${hashFile.path}');
 }

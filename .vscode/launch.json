@@ -20,6 +20,21 @@
       "request": "launch",
       "type": "dart",
       "flutterMode": "release"
+    },
+    {
+      "name": "prebuild:prebuilder",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/prebuilder.dart",
+      "cwd": "${workspaceFolder}/prebuild",
+      "toolArgs": ["pub", "run", "prebuild:prebuilder"]
+    },{
+      "name": "prebuild:test",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/prebuilder.dart",
+      "cwd": "${workspaceFolder}/prebuild",
+      "toolArgs": ["pub", "run", "prebuild:prebuilder"]
     }
   ]
 }
