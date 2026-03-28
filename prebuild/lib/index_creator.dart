@@ -1,12 +1,14 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
-// 
+//
 
-// wolof proverbs 
+// wolof proverbs
 // TODO index for Solomon Proverbs
-void indexCreation() async {
+void createWordlist() async {
   // Use absolute paths to be safe, or relative to the project root.
   // The prebuild package execution context might vary depending on how it's called.
   // But running `dart run prebuild/bin/generate_index.dart` from the project root will have `.` as the root.
@@ -64,13 +66,4 @@ void indexCreation() async {
   print('Successfully processed ${lines.length} lines.');
   print('Hash: $md5Hash');
   print('Index saved to ${outFile.path}');
-}
-
-
-
-
-
-
-void preCookPuzzles() {
-  print('preCookPuzzles');
 }
