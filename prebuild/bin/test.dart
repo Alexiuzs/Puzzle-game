@@ -1,4 +1,4 @@
-import 'package:prebuild/index_creator.dart' as index_creator;
+import 'package:prebuild/wordlist_creator.dart' as index_creator;
 
 void main(List<String> arguments) {
   print(arguments);
