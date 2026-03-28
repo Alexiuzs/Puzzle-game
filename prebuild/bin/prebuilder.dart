@@ -2,7 +2,10 @@ import 'package:prebuild/index_creator.dart' as index_creator;
 import 'package:prebuild/puzzle_finder.dart' as puzzle_finder;
 
 void main(List<String> arguments) {
-  if (arguments.isEmpty) {
+  if (arguments.isEmpty ||
+      (!arguments.contains('wordlist') &&
+          !arguments.contains('puzzles') &&
+          !arguments.contains('all'))) {
     print(
       'No arguments provided\r\rUsage: dart run bin/prebuild.dart <wordlist|puzzles|all>',
     );
