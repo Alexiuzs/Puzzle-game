@@ -19,12 +19,11 @@ class WordList extends StatelessWidget {
       itemCount: words.length,
       itemBuilder: (_, index) {
         final word = words[index];
-        final definition = notifier.getDefinition(word);
-        
+
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 2.0),
           child: GestureDetector(
-            onTap: () => notifier.setActiveDefinition(word, definition),
+            onTap: () => notifier.setActiveLexicalEntry(word),
             child: Text(
               word,
               style: const TextStyle(

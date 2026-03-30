@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -12,8 +12,8 @@ import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:confetti/confetti.dart';
 
 import '../models/puzzle.dart';
+import '../models/lexical_entry.dart';
 import '../services/alphabet_loader.dart';
-import '../services/word_loader.dart';
 import '../services/puzzle_generator.dart';
 import '../services/word_validator.dart';
 import '../widgets/letter_wheel.dart';
@@ -27,14 +27,14 @@ enum SubmitResult { success, alreadyFound, invalid }
 class PuzzleNotifier extends ChangeNotifier {
   Puzzle? _puzzle;
   List<String> _alphabet = [];
-  Set<String> _dictionary = {};
-  Map<String, String> _definitions = {};
-  String? _activeWord;
-  String? _activeDefinition;
+  Set<String> _dictionary = {}; // Separate list of words from the same wordlist
+  List<dynamic> wordlist = []; // List of word objects in json format
+  // String? _activeWord;
+  // String? _activeDefinition;
 
-  String? get activeWord => _activeWord;
-  String? get activeDefinition => _activeDefinition;
-
+  // String? get activeWord => _activeWord;
+  // String? get activeDefinition => _activeDefinition;
+  LexicalEntry? activeLexicalEntry;
 
   DateTime _currentDate = DateTime.now();
   DateTime get currentDate => _currentDate;
@@ -151,26 +151,58 @@ class PuzzleNotifier extends ChangeNotifier {
 
   Future<void> initialize() async {
     debugPrint('initialize: beginning');
+
+    // if we're in debug mode, check the hashes to make sure our data is up to date
+    if (kDebugMode) {
+      // get saved hash
+      final rawHashData = await rootBundle.loadString(
+        'assets/generated/hash.json',
+      );
+      final hashObjects = json.decode(rawHashData);
+      final savedHash = hashObjects['data'][0]['hash'].toString();
+
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final dataFiles = manifest
+          .listAssets()
+          .where(
+            (path) =>
+                path.startsWith('assets/data/') && !path.endsWith('.DS_Store'),
+          )
+          .toList();
+
+      // Sort alphabetically by filename
+      dataFiles.sort((a, b) => a.split('/').last.compareTo(b.split('/').last));
+
+      final List<int> allBytes = [];
+      for (var path in dataFiles) {
+        final byteData = await rootBundle.load(path);
+        allBytes.addAll(byteData.buffer.asUint8List());
+      }
+      final md5Hash = md5.convert(allBytes).toString();
+      if (md5Hash != savedHash) {
+        debugPrint('Hash mismatch! Data has changed.');
+        debugPrint('Rerun the prebuild script to update the data.');
+        assert(() {
+          throw Exception("____________Data is NOT up to date____________");
+        }());
+      }
+    }
+
     try {
+      // load the wordlist data
+      final rawWordlistData = await rootBundle.loadString(
+        'assets/generated/wordlist.json',
+      );
+      final wordObjects = json.decode(rawWordlistData);
+      wordlist = wordObjects['data'];
+
+      // get the list of words
+      _dictionary = wordlist.map((e) => e['word'].toString()).toList().toSet();
+
+      // Alphabet
       _alphabet = await AlphabetLoader.loadFromAsset(
         'assets/alphabets/wolof_alphabet.txt',
       );
-      final words = await WordLoader.loadFromAsset(
-        'assets/wordlists/wolof_words.txt',
-      );
-      _dictionary = words;
-
-      try {
-        final defsJson = await rootBundle.loadString(
-          'assets/wordlists/wolof_definitions.json',
-        );
-        final Map<String, dynamic> decoded = json.decode(defsJson);
-        _definitions = decoded.map(
-          (key, value) => MapEntry(key, value.toString()),
-        );
-      } catch (e) {
-        debugPrint('initialize: could not load definitions: $e');
-      }
 
       await _loadPuzzleForDate(_currentDate);
 
@@ -292,30 +324,27 @@ class PuzzleNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  String getDefinition(String word) {
-    return _definitions[word.toLowerCase()] ??
-        "Teggil leeral fii (No definition found)...";
+  Future<LexicalEntry> getLexicalEntry(String word) async {
+    final wordObject = wordlist.firstWhere(
+      (e) => e['word'].toString().toLowerCase() == word.toLowerCase(),
+    );
+    return LexicalEntry.fromJson(wordObject);
   }
 
-  void setActiveDefinition(String word, String definition) {
-    if (_activeWord == word) {
-      clearActiveDefinition();
+  Future<void> setActiveLexicalEntry(String word) async {
+    if (activeLexicalEntry?.word == word) {
+      clearActiveLexicalEntry();
     } else {
-      _activeWord = word;
-      _activeDefinition = definition;
+      activeLexicalEntry = await getLexicalEntry(word);
       notifyListeners();
     }
   }
 
-  void clearActiveDefinition() {
-    if (_activeWord != null || _activeDefinition != null) {
-      _activeWord = null;
-      _activeDefinition = null;
-      notifyListeners();
-    }
+  void clearActiveLexicalEntry() {
+    activeLexicalEntry = null;
+    notifyListeners();
   }
 }
-
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -482,425 +511,453 @@ class GameScreenState extends State<GameScreen> {
         ],
       ),
       body: GestureDetector(
-        onTap: () => _notifier.clearActiveDefinition(),
+        onTap: () => _notifier.clearActiveLexicalEntry(),
         behavior: HitTestBehavior.opaque,
         child: Column(
           children: [
-
-          Consumer<PuzzleNotifier>(
-            builder: (context, notifier, _) {
-              return LinearProgressIndicator(
-                value: notifier.progressPercentage,
-                backgroundColor: Colors.grey[200],
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
-                minHeight: 8,
-              );
-            },
-          ),
-          Expanded(
-            child: Consumer<PuzzleNotifier>(
+            Consumer<PuzzleNotifier>(
               builder: (context, notifier, _) {
-                final puzzle = notifier.puzzle;
-                if (puzzle == null) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                List<String> acceptedLetters = [];
-                acceptedLetters.addAll(puzzle.letters);
-                acceptedLetters.add(puzzle.centerLetter);
-
-                Widget wheel = LetterWheel(
-                  key: _wheelKey,
-                  puzzle: puzzle,
-                  onLetterTap: (l) {
-                    if (!acceptedLetters.contains(l)) return;
-                    _controller.text += l;
-                    setState(() {});
-                  },
+                return LinearProgressIndicator(
+                  value: notifier.progressPercentage,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+                  minHeight: 8,
                 );
-                List<Widget> input = [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Erase last letter button
-                      IconButton.filled(
-                        onPressed: () {
-                          if (_controller.text.isNotEmpty) {
-                            // Remove last character (handles multi-byte Wolof characters)
-                            final chars = _controller.text.characters;
-                            setState(() {
-                              _controller.text = chars
-                                  .take(chars.length - 1)
-                                  .toString();
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.backspace_outlined),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.grey.withValues(alpha: 0.2),
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.onSurface,
-                        ),
-                        tooltip: 'Erase last letter',
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ShakeWidget(
-                          key: _shakeKey,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              _controller.text.isEmpty
-                                  ? '...'
-                                  : _controller.text,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.displayMedium
-                                  ?.copyWith(
-                                    color: _controller.text.isEmpty
-                                        ? Theme.of(context)
-                                              .colorScheme
-                                              .onSurface
-                                              .withValues(alpha: 0.3)
-                                        : null,
-                                  ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Submit button
-                      ElevatedButton(
-                        onPressed: _handleSubmit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors
-                              .green, // const Color.fromARGB(255, 26, 162, 49),
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                          ),
-                        ),
-                        child: const Text(
-                          'Yónni ko',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Shuffle button above submit row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () {
-                          _wheelKey.currentState?.triggerShuffle(
-                            notifier.shuffleOuter,
-                          );
-                        },
-                        icon: const Icon(Icons.cached, size: 16),
-                        label: const Text('Yëngal (Shuffle)'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      _message,
-                      style: TextStyle(
-                        color: _message.startsWith('Baax na')
-                            ? Colors.green
-                            : Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              },
+            ),
+            Expanded(
+              child: Consumer<PuzzleNotifier>(
+                builder: (context, notifier, _) {
+                  final puzzle = notifier.puzzle;
+                  if (puzzle == null) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  List<String> acceptedLetters = [];
+                  acceptedLetters.addAll(puzzle.letters);
+                  acceptedLetters.add(puzzle.centerLetter);
+
+                  Widget wheel = LetterWheel(
+                    key: _wheelKey,
+                    puzzle: puzzle,
+                    onLetterTap: (l) {
+                      if (!acceptedLetters.contains(l)) return;
+                      _controller.text += l;
+                      setState(() {});
+                    },
+                  );
+                  List<Widget> input = [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Baax na',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 4),
-                              Expanded(
-                                child: WordList(words: notifier.foundWords),
-                              ),
-                            ],
+                        // Erase last letter button
+                        IconButton.filled(
+                          onPressed: () {
+                            if (_controller.text.isNotEmpty) {
+                              // Remove last character (handles multi-byte Wolof characters)
+                              final chars = _controller.text.characters;
+                              setState(() {
+                                _controller.text = chars
+                                    .take(chars.length - 1)
+                                    .toString();
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.backspace_outlined),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.grey.withValues(alpha: 0.2),
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSurface,
                           ),
+                          tooltip: 'Erase last letter',
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Baaxul',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 4),
-                              Expanded(
-                                child: WordList(words: notifier.triedWords),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ];
-
-                return Stack(
-                  alignment: Alignment.topCenter,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: wideScreen
-                          ? Row(
-                              children: [
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 16.0,
+                          child: ShakeWidget(
+                            key: _shakeKey,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                _controller.text.isEmpty
+                                    ? '...'
+                                    : _controller.text,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.displayMedium
+                                    ?.copyWith(
+                                      color: _controller.text.isEmpty
+                                          ? Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withValues(alpha: 0.3)
+                                          : null,
                                     ),
-                                    child: wheel,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                SizedBox(
-                                  width: min(size.width / 2, 250),
-                                  child: Column(children: input),
-                                ),
-                              ],
-                            )
-                          : Column(
-                              children: [
-                                wheel,
-                                const SizedBox(height: 16),
-                                Expanded(child: Column(children: input)),
-                              ],
+                              ),
                             ),
-                    ),
-                    if (_wologramBanner.isNotEmpty)
-                      Positioned(
-                        top: 50,
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.amber,
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                blurRadius: 10,
-                                color: Colors.black.withAlpha(122),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'WOLOGRAM!',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              Text(
-                                _wologramBanner.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              const Text(
-                                '+10 POINTS BONUS!',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
-                      ),
-                    ConfettiWidget(
-                      confettiController: _confettiController,
-                      blastDirection: -pi / 2, // upwards
-                      emissionFrequency: 0.03,
-                      numberOfParticles: 25,
-                      maxBlastForce: 20,
-                      minBlastForce: 10,
-                      gravity: 0.3,
-                      colors: const [
-                        Colors.green,
-                        Colors.blue,
-                        Colors.pink,
-                        Colors.orange,
-                        Colors.purple,
-                        Colors.amber,
+                        const SizedBox(width: 8),
+                        // Submit button
+                        ElevatedButton(
+                          onPressed: _handleSubmit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors
+                                .green, // const Color.fromARGB(255, 26, 162, 49),
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(12),
+                              ),
+                            ),
+                          ),
+                          child: const Text(
+                            'Yónni ko',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ],
                     ),
-                    // Reveal all possible words - shown when running in debug mode only
-                    if (kDebugMode)
-                      Positioned(
-                        bottom: 16,
-                        right: 16,
-                        child: IconButton.filledTonal(
+                    // Shuffle button above submit row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton.icon(
                           onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) {
-                                List<Widget> wordsWidgets = [];
-                                Set<String>? wordsSet =
-                                    notifier.puzzle?.validWords;
-                                if (wordsSet != null && wordsSet.isNotEmpty) {
-                                  for (String word in wordsSet) {
-                                    wordsWidgets.add(Text(word));
-                                  }
-                                }
-
-                                return AlertDialog(
-                                  title: const Text('Jàpple ma!'),
-                                  content: SingleChildScrollView(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: wordsWidgets,
-                                    ),
-                                  ),
-                                  actions: [
-                                    ElevatedButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('Close'),
-                                    ),
-                                  ],
-                                );
-                              },
+                            _wheelKey.currentState?.triggerShuffle(
+                              notifier.shuffleOuter,
                             );
                           },
-                          icon: const Icon(Icons.help),
+                          icon: const Icon(Icons.cached, size: 16),
+                          label: const Text('Yëngal (Shuffle)'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        _message,
+                        style: TextStyle(
+                          color: _message.startsWith('Baax na')
+                              ? Colors.green
+                              : Colors.red,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    
-                    // Definition Overlay
-                    if (notifier.activeDefinition != null)
-                      Positioned(
-                        bottom: 80,
-                        left: 20,
-                        right: 20,
-                        child: GestureDetector(
-                          onTap: () => notifier.clearActiveDefinition(), // Dismiss when tapping outside the popup
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            padding: const EdgeInsets.all(16),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Baax na',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: WordList(words: notifier.foundWords),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Baaxul',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: WordList(words: notifier.triedWords),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ];
+
+                  return Stack(
+                    alignment: Alignment.topCenter,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: wideScreen
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 16.0,
+                                      ),
+                                      child: wheel,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  SizedBox(
+                                    width: min(size.width / 2, 250),
+                                    child: Column(children: input),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                children: [
+                                  wheel,
+                                  const SizedBox(height: 16),
+                                  Expanded(child: Column(children: input)),
+                                ],
+                              ),
+                      ),
+                      if (_wologramBanner.isNotEmpty)
+                        Positioned(
+                          top: 50,
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.95),
-                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(15),
                               boxShadow: [
                                 BoxShadow(
                                   blurRadius: 10,
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  spreadRadius: 2,
+                                  color: Colors.black.withAlpha(122),
                                 ),
                               ],
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.secondary,
-                              ),
                             ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        notifier.activeWord?.toUpperCase() ?? '',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                          color: Theme.of(context).colorScheme.onSecondaryContainer,
-                                        ),
+                                const Text(
+                                  'WOLOGRAM!',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                Text(
+                                  _wologramBanner.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const Text(
+                                  '+10 POINTS BONUS!',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ConfettiWidget(
+                        confettiController: _confettiController,
+                        blastDirection: -pi / 2, // upwards
+                        emissionFrequency: 0.03,
+                        numberOfParticles: 25,
+                        maxBlastForce: 20,
+                        minBlastForce: 10,
+                        gravity: 0.3,
+                        colors: const [
+                          Colors.green,
+                          Colors.blue,
+                          Colors.pink,
+                          Colors.orange,
+                          Colors.purple,
+                          Colors.amber,
+                        ],
+                      ),
+                      // Reveal all possible words - shown when running in debug mode only
+                      if (kDebugMode)
+                        Positioned(
+                          bottom: 16,
+                          right: 16,
+                          child: IconButton.filledTonal(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) {
+                                  List<Widget> wordsWidgets = [];
+                                  Set<String>? wordsSet =
+                                      notifier.puzzle?.validWords;
+                                  if (wordsSet != null && wordsSet.isNotEmpty) {
+                                    for (String word in wordsSet) {
+                                      wordsWidgets.add(Text(word));
+                                    }
+                                  }
+
+                                  return AlertDialog(
+                                    title: const Text('Jàpple ma!'),
+                                    content: SingleChildScrollView(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: wordsWidgets,
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close, size: 20),
-                                      onPressed: () => notifier.clearActiveDefinition(),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                  ],
-                                ),
-                                const Divider(),
-                                Builder(
-                                  builder: (context) {
-                                    final defText = notifier.activeDefinition!;
-                                    final proverbMatch = RegExp(r"(\s'.*'\s\(Xam-Xamu Suleymaan Saar.*)$");
-                                    final match = proverbMatch.firstMatch(defText);
+                                    actions: [
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Close'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                            icon: const Icon(Icons.help),
+                          ),
+                        ),
 
-                                    if (match != null) {
-                                      final proverb = match.group(1)!.trim();
-                                      final definition = defText.substring(0, match.start).trim();
-                                      
+                      // Definition Overlay
+                      if (notifier.activeLexicalEntry != null)
+                        Positioned(
+                          bottom: 80,
+                          left: 20,
+                          right: 20,
+                          child: GestureDetector(
+                            onTap: () => notifier
+                                .clearActiveLexicalEntry(), // Dismiss when tapping outside the popup
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .secondaryContainer
+                                    .withValues(alpha: 0.95),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    blurRadius: 10,
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                                border: Border.all(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          notifier.activeLexicalEntry!.word
+                                              .toUpperCase(),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSecondaryContainer,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close, size: 20),
+                                        onPressed: () =>
+                                            notifier.clearActiveLexicalEntry(),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(),
+                                  Builder(
+                                    builder: (context) {
+                                      final String definition =
+                                          notifier
+                                              .activeLexicalEntry!
+                                              .wolofDef ??
+                                          '';
+                                      final String proverb =
+                                          notifier
+                                              .activeLexicalEntry!
+                                              .solomonProverb ??
+                                          '';
+                                      final String ref =
+                                          notifier
+                                              .activeLexicalEntry!
+                                              .solomonRef ??
+                                          '';
+
                                       return Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          if (definition.isNotEmpty)
+                                          if (definition != '')
                                             Text(
                                               definition,
                                               style: TextStyle(
                                                 fontSize: 14,
-                                                color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSecondaryContainer,
                                               ),
                                             ),
-                                          if (definition.isNotEmpty && proverb.isNotEmpty)
+                                          if (definition != '' && proverb != '')
                                             const SizedBox(height: 8),
-                                          if (proverb.isNotEmpty)
+                                          if (proverb != '')
                                             Text(
                                               proverb,
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 fontStyle: FontStyle.italic,
-                                                color: Theme.of(context).colorScheme.onSecondaryContainer.withValues(alpha: 0.9),
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSecondaryContainer
+                                                    .withValues(alpha: 0.9),
+                                              ),
+                                            ),
+                                          if (ref != '')
+                                            Text(
+                                              '\t\tKàddu yu Xelu $ref',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontStyle: FontStyle.italic,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSecondaryContainer
+                                                    .withValues(alpha: 0.9),
                                               ),
                                             ),
                                         ],
                                       );
-                                    } else {
-                                      return Text(
-                                        defText,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Theme.of(context).colorScheme.onSecondaryContainer,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ],
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
                   );
                 },
               ),
@@ -910,8 +967,6 @@ class GameScreenState extends State<GameScreen> {
       ),
     );
   }
-
-
 
   Future<void> _handleSubmit() async {
     final result = _notifier.submit(_controller.text);

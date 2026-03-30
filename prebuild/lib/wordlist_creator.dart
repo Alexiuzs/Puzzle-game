@@ -6,11 +6,10 @@ import 'package:crypto/crypto.dart';
 import 'package:csv/csv.dart';
 
 // current working dir is prebuild running from flutter pub run prebuild:test
-// so 'assets/...'; is correct
 
 void test() async {
   print('this is the example');
-  final wolKyDefPath = 'assets/wolKYG.csv';
+  final wolKyDefPath = '../assets/data/wolKYG.csv';
   final wolKyFile = File(wolKyDefPath);
   if (!await wolKyFile.exists()) {
     print('File not found: $wolKyDefPath');
@@ -29,7 +28,7 @@ void createWordlist() async {
   print('beginning wordlist creation');
   // existing wordlists
   // from wolKYG Paratext project
-  final wolKyDefPath = 'assets/wolKYG.csv';
+  final wolKyDefPath = '../assets/data/wolKYG.csv';
   final wolKyFile = File(wolKyDefPath);
   if (!await wolKyFile.exists()) {
     print('File not found: $wolKyDefPath');
@@ -41,8 +40,8 @@ void createWordlist() async {
       .transform(csv.decoder)
       .toList();
 
-  // Alex AI created and other sources
-  final otherDefPath = 'assets/definitions.csv';
+  // Alex file - AI created and other sources
+  final otherDefPath = '../assets/data/definitions.csv';
   final otherFile = File(otherDefPath);
   if (!await otherFile.exists()) {
     print('File not found: $otherDefPath');
@@ -54,8 +53,8 @@ void createWordlist() async {
       .transform(csv.decoder)
       .toList();
 
-  // post wolKYG from translation team
-  final translatorDefPath = 'assets/translator.csv';
+  // post wolKYG definitions from translation team
+  final translatorDefPath = '../assets/data/translator.csv';
   final translatorFile = File(translatorDefPath);
   if (!await translatorFile.exists()) {
     print('File not found: $translatorDefPath');
@@ -68,7 +67,7 @@ void createWordlist() async {
       .toList();
 
   // suffix list
-  final suffixPath = 'assets/suffix_list.txt';
+  final suffixPath = '../assets/data/suffix_list.txt';
   final suffixFile = File(suffixPath);
   if (!await suffixFile.exists()) {
     print('File not found: $suffixPath');
@@ -77,7 +76,7 @@ void createWordlist() async {
   final List<String> suffixes = await suffixFile.readAsLines();
 
   // proverbs
-  final wolofNjaayPath = '../assets/proverbs/wolof_njaay.txt';
+  final wolofNjaayPath = '../assets/data/wolof_njaay.txt';
   final wolofNjaayFile = File(wolofNjaayPath);
   if (!await wolofNjaayFile.exists()) {
     print('File not found: $wolofNjaayPath');
@@ -85,7 +84,7 @@ void createWordlist() async {
   }
   final List<String> wolofNjaayProverbs = await wolofNjaayFile.readAsLines();
 
-  final solomonPath = '../assets/proverbs/solomon.csv';
+  final solomonPath = '../assets/data/solomon.csv';
   final solomonFile = File(solomonPath);
   if (!await solomonFile.exists()) {
     print('File not found: $solomonPath');
@@ -101,18 +100,22 @@ void createWordlist() async {
   final wordlistPath = '../assets/generated/wordlist.json';
   final hashPath = '../assets/generated/hash.json';
 
-  print('data in memory, proceeding to assemble\rFirst creating wordlist...');
+  print(
+    'Data in memory, proceeding to assemble...\n...first creating wordlist...',
+  );
 
   final Map<String, Map<String, dynamic>> wordData = {};
 
+  // clean word whitespace etc and make lowercase
   String cleanWord(String value) =>
       value.replaceAll('\uFEFF', '').trim().toLowerCase();
 
   // Priority 1: wolKyDefs
   for (final row in wolKyDefs) {
     if (row.isEmpty || row[0] == null) continue;
+
     String w = cleanWord(row[0].toString());
-    if (w.isEmpty) continue;
+    if (w.length < 3 || int.tryParse(w) != null) continue;
     wordData[w] = {
       'word': w,
       'wo': row.length > 1 ? row[1].toString().trim() : '',
@@ -124,7 +127,7 @@ void createWordlist() async {
   for (final row in translatorDefs) {
     if (row.isEmpty || row[0] == null) continue;
     String w = cleanWord(row[0].toString());
-    if (w.isEmpty) continue;
+    if (w.length < 3 || int.tryParse(w) != null) continue;
     if (!wordData.containsKey(w)) {
       wordData[w] = {
         'word': w,
@@ -138,7 +141,7 @@ void createWordlist() async {
   for (final row in otherDefs) {
     if (row.isEmpty || row[0] == null) continue;
     String w = cleanWord(row[0].toString());
-    if (w.isEmpty) continue;
+    if (w.length < 3 || int.tryParse(w) != null) continue;
     if (!wordData.containsKey(w)) {
       wordData[w] = {
         'word': w,
@@ -186,6 +189,7 @@ void createWordlist() async {
   // Sort by length descending so we match the longest suffix first
   sortedSuffixes.sort((a, b) => b.length.compareTo(a.length));
 
+  // go back through and try to guess stems
   for (var entry in wordData.values) {
     String w = entry['word'];
     String stem = w;
@@ -208,7 +212,6 @@ void createWordlist() async {
       RegExp(r'[^\p{L}\p{N}]+', unicode: true),
     );
     for (var w in words) {
-      if (w.length < 3 || int.tryParse(w) != null) continue;
       wolofIndex.putIfAbsent(w, () => []);
       if (wolofIndex[w]!.isEmpty || wolofIndex[w]!.last != lineNum) {
         wolofIndex[w]!.add(lineNum);
@@ -225,7 +228,6 @@ void createWordlist() async {
         RegExp(r'[^\p{L}\p{N}]+', unicode: true),
       );
       for (var w in words) {
-        if (w.length < 3 || int.tryParse(w) != null) continue;
         solomonIndex.putIfAbsent(w, () => []);
         if (solomonIndex[w]!.isEmpty || solomonIndex[w]!.last != lineNum) {
           solomonIndex[w]!.add(lineNum);
@@ -262,8 +264,24 @@ void createWordlist() async {
   print('Wordlist saved to ${outFile.path}');
 
   // Hash
-  final bytes = const Utf8Encoder().convert(jsonString);
-  final md5Hash = md5.convert(bytes).toString();
+  print('Computing hash of source files...');
+  final dataDir = Directory('../assets/data');
+  final dataFiles = dataDir
+      .listSync()
+      .whereType<File>()
+      .where((f) => !f.path.endsWith('.DS_Store'))
+      .toList();
+
+  // Sort alphabetically by filename
+  dataFiles.sort(
+    (a, b) => a.uri.pathSegments.last.compareTo(b.uri.pathSegments.last),
+  );
+
+  final List<int> allBytes = [];
+  for (var f in dataFiles) {
+    allBytes.addAll(await f.readAsBytes());
+  }
+  final md5Hash = md5.convert(allBytes).toString();
 
   final hashFile = File(hashPath);
   if (!await hashFile.parent.exists()) {

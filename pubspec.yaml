@@ -17,6 +17,8 @@ dependencies:
   intl: ^0.17.0
   haptic_feedback: ^0.6.4+3
   confetti: ^0.8.0
+  crypto: ^3.0.7
+  csv: ^8.0.0
 
 dev_dependencies:
   flutter_test:
@@ -28,4 +30,5 @@ flutter:
   assets:
     - assets/
     - assets/alphabets/
-    - assets/wordlists/
+    - assets/generated/
+    - assets/data/
