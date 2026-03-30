@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart';
 
-// this is not the whole entry, but with a chosen proverb if available
+// this is not the whole entry from wordlist, but with a random proverb of each category if available
 class LexicalEntry {
   final String word;
   final String? wolofDef;
@@ -27,6 +27,7 @@ class LexicalEntry {
     String? solomonProverb;
     String? solomonRef;
 
+    // grab one of the wolof proverbs
     if (json['idxWolofNjaay'] != null) {
       final List<dynamic> list = json['idxWolofNjaay'] as List<dynamic>;
       if (list.isNotEmpty) {
@@ -37,6 +38,7 @@ class LexicalEntry {
         wolofNjaay = await getWolofNjaay(wolofNjaayID);
       }
     }
+    // grab one of the solomonic proverbs
     if (json['idxSolomon'] != null) {
       final List<dynamic> list = json['idxSolomon'] as List<dynamic>;
       if (list.isNotEmpty) {

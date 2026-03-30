@@ -5,18 +5,18 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Puzzle-game",
+      "name": "puzzle-game (debug)",
       "request": "launch",
       "type": "dart"
     },
     {
-      "name": "Puzzle-game (profile mode)",
+      "name": "puzzle-game (profile mode)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "profile"
     },
     {
-      "name": "Puzzle-game (release mode)",
+      "name": "puzzle-game (release mode)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "release"
@@ -31,7 +31,7 @@
     },
     {
       "name": "prebuild:prebuilder wordlist",
-      "type": "dart",
+    "type": "dart",
       "request": "launch",
       "program": "bin/prebuilder.dart",
       "cwd": "${workspaceFolder}/prebuild",
