@@ -892,21 +892,60 @@ class GameScreenState extends State<GameScreen> {
                                   const Divider(),
                                   Builder(
                                     builder: (context) {
+                                      TextStyle definitionStyle = TextStyle(
+                                        fontSize: 14,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSecondaryContainer,
+                                      );
+                                      TextStyle proverbStyle = TextStyle(
+                                        fontSize: 14,
+                                        fontStyle: FontStyle.italic,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSecondaryContainer,
+                                      );
+                                      TextStyle refStyle = TextStyle(
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSecondaryContainer
+                                            .withValues(alpha: 0.9),
+                                      );
+
                                       final String definition =
                                           notifier
                                               .activeLexicalEntry!
                                               .wolofDef ??
                                           '';
-                                      final String proverb =
+                                      final String wolofProverb =
+                                          notifier
+                                              .activeLexicalEntry!
+                                              .wolofNjaay ??
+                                          '';
+                                      final String solomonProverb =
                                           notifier
                                               .activeLexicalEntry!
                                               .solomonProverb ??
                                           '';
-                                      final String ref =
-                                          notifier
-                                              .activeLexicalEntry!
-                                              .solomonRef ??
-                                          '';
+                                      String parsRef(String ref) {
+                                        String rawRef = ref;
+                                        if (rawRef.contains(':')) {
+                                          final List<String> rawRefList = rawRef
+                                              .split(':');
+
+                                          return 'saar ${rawRefList[0]} aaya ${rawRefList[1]}';
+                                        }
+                                        return rawRef;
+                                      }
+
+                                      String ref = parsRef(
+                                        notifier
+                                                .activeLexicalEntry!
+                                                .solomonRef ??
+                                            '',
+                                      );
 
                                       return Column(
                                         crossAxisAlignment:
@@ -915,38 +954,33 @@ class GameScreenState extends State<GameScreen> {
                                           if (definition != '')
                                             Text(
                                               definition,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSecondaryContainer,
-                                              ),
+                                              style: definitionStyle,
                                             ),
-                                          if (definition != '' && proverb != '')
+                                          if (definition != '' &&
+                                              wolofProverb != '')
                                             const SizedBox(height: 8),
-                                          if (proverb != '')
+                                          if (wolofProverb != '')
                                             Text(
-                                              proverb,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontStyle: FontStyle.italic,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSecondaryContainer
-                                                    .withValues(alpha: 0.9),
-                                              ),
+                                              wolofProverb,
+                                              style: proverbStyle,
+                                            ),
+                                          if (wolofProverb != '')
+                                            Text(
+                                              '\t\tWolof Njaay',
+                                              style: refStyle,
+                                            ),
+                                          if (wolofProverb != '' &&
+                                              solomonProverb != '')
+                                            const SizedBox(height: 8),
+                                          if (solomonProverb != '')
+                                            Text(
+                                              solomonProverb,
+                                              style: proverbStyle,
                                             ),
                                           if (ref != '')
                                             Text(
                                               '\t\tKàddu yu Xelu $ref',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontStyle: FontStyle.italic,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSecondaryContainer
-                                                    .withValues(alpha: 0.9),
-                                              ),
+                                              style: refStyle,
                                             ),
                                         ],
                                       );

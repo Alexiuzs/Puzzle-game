@@ -93,7 +93,7 @@ Future<String> getWolofNjaay(int id) async {
   }
 
   if (_cachedWolofNjaay != null && id >= 0 && id < _cachedWolofNjaay!.length) {
-    return _cachedWolofNjaay![id];
+    return _cachedWolofNjaay![id].trim();
   }
   return '';
 }
