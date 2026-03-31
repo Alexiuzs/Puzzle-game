@@ -2,7 +2,7 @@ import 'dart:math';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
+import 'top_callout.dart';
 import '../models/puzzle.dart';
 import 'circle_button.dart';
 
@@ -49,10 +49,13 @@ class LetterWheelState extends State<LetterWheel>
       end: 2 * pi,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
-    _pulseScale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 50),
-    ]).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
+    _pulseScale =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 50),
+          TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 50),
+        ]).animate(
+          CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+        );
 
     // Swap letters at the midpoint of the animation
     _controller.addListener(() {
@@ -83,10 +86,12 @@ class LetterWheelState extends State<LetterWheel>
 
   /// Pulses the center letter 5 times and shows the warning message
   void triggerPulse() {
-    _pulseController.repeat(reverse: false).timeout(
-      const Duration(seconds: 1), // 200ms * 5 = 1s
-      onTimeout: () => _pulseController.stop(),
-    );
+    _pulseController
+        .repeat(reverse: false)
+        .timeout(
+          const Duration(seconds: 1), // 200ms * 5 = 1s
+          onTimeout: () => _pulseController.stop(),
+        );
     setState(() {
       _showWarning = true;
     });
@@ -172,47 +177,73 @@ class LetterWheelState extends State<LetterWheel>
                       () {
                         // Position top-left (around 240 degrees)
                         const angle = 240 * (pi / 180);
-                        const radius = 1.35; // Further out than the outer circles
-                        final dx = center.dx + orbitRadius * radius * cos(angle);
-                        final dy = center.dy + orbitRadius * radius * sin(angle);
+                        const radius =
+                            1.35; // Further out than the outer circles
+                        final dx =
+                            center.dx + orbitRadius * radius * cos(angle);
+                        final dy =
+                            center.dy + orbitRadius * radius * sin(angle);
 
                         return Positioned(
-                          left: dx - 100, // Center the text box
-                          top: dy - 80,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 220,
-                                child: Text(
-                                  "baat bu nekk war na am araf bii",
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 22, // Bigger
-                                    height: 1.1,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withValues(alpha: 0.5),
-                                        blurRadius: 4,
-                                        offset: const Offset(1, 1),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Transform.rotate(
-                                angle: angle + pi / 2, // Rotate to point center
-                                child: const Icon(
-                                  Icons.arrow_downward,
-                                  color: Colors.red,
-                                  size: 60, // Much bigger
-                                ),
-                              ),
-                            ],
+                          left: (size - 200) / 2,
+                          bottom: (size - 100) / 3,
+                          child: TopCallout(
+                            color: Theme.of(context).colorScheme.error,
+                            child: Text(
+                              textAlign: TextAlign.center,
+                              "baat bu nekk war na am araf bii",
+                            ),
                           ),
+                          // child: SizedBox(
+                          //   width: 200,
+                          //   height: 100,
+                          //   child: Card(
+                          //     margin: .all(16),
+                          //     child: Center(
+                          //       child: Padding(
+                          //         padding: const EdgeInsets.all(16.0),
+                          //         child: Text(
+                          //           textAlign: TextAlign.center,
+                          //           "baat bu nekk war na am araf bii",
+                          //         ),
+                          //       ),
+                          //     ),
+                          //   ),
+                          // ),
+                          // Column(
+                          //   mainAxisSize: MainAxisSize.min,
+                          //   children: [
+                          //     SizedBox(
+                          //       width: 220,
+                          //       child: Text(
+                          //         "baat bu nekk war na am araf bii",
+                          //         textAlign: TextAlign.center,
+                          //         style: TextStyle(
+                          //           color: Colors.red,
+                          //           fontWeight: FontWeight.bold,
+                          //           fontSize: 22, // Bigger
+                          //           height: 1.1,
+                          //           shadows: [
+                          //             Shadow(
+                          //               color: Colors.black.withValues(alpha: 0.5),
+                          //               blurRadius: 4,
+                          //               offset: const Offset(1, 1),
+                          //             ),
+                          //           ],
+                          //         ),
+                          //       ),
+                          //     ),
+                          //     const SizedBox(height: 10),
+                          //     Transform.rotate(
+                          //       angle: angle + pi / 2, // Rotate to point center
+                          //       child: const Icon(
+                          //         Icons.arrow_downward,
+                          //         color: Colors.red,
+                          //         size: 60, // Much bigger
+                          //       ),
+                          //     ),
+                          //   ],
+                          // ),
                         );
                       }(),
                   ],
