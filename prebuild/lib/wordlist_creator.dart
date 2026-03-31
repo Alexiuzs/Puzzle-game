@@ -206,7 +206,7 @@ void createWordlist() async {
 
   Map<String, List<int>> wolofIndex = {};
   for (int i = 0; i < wolofNjaayProverbs.length; i++) {
-    final lineNum = i + 1;
+    final lineNum = i;
     final text = wolofNjaayProverbs[i];
     final words = text.toLowerCase().split(
       RegExp(r'[^\p{L}\p{N}]+', unicode: true),
@@ -221,7 +221,7 @@ void createWordlist() async {
 
   Map<String, List<int>> solomonIndex = {};
   for (int i = 0; i < solomonProverbs.length; i++) {
-    final lineNum = i + 1;
+    final lineNum = i;
     if (solomonProverbs[i].length > 1) {
       final text = solomonProverbs[i][1].toString();
       final words = text.toLowerCase().split(
