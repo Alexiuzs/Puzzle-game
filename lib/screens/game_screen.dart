@@ -21,7 +21,7 @@ import '../widgets/word_list.dart';
 import '../widgets/shake_widget.dart';
 import '../theme_notifier.dart';
 
-enum SubmitResult { success, alreadyFound, invalid }
+enum SubmitResult { success, alreadyFound, invalid, missingCenter }
 
 /// Notifier that holds the current puzzle state and user progress.
 class PuzzleNotifier extends ChangeNotifier {
@@ -238,6 +238,12 @@ class PuzzleNotifier extends ChangeNotifier {
     final w = input.trim().toLowerCase();
     if (_puzzle == null) return SubmitResult.invalid;
     if (w.isEmpty) return SubmitResult.invalid;
+
+    // Check if center letter is missing
+    if (!w.contains(_puzzle!.centerLetter.toLowerCase())) {
+      return SubmitResult.missingCenter;
+    }
+
     if (_found.contains(w)) return SubmitResult.alreadyFound;
     if (WordValidator.isValid(w, _puzzle!, _dictionary)) {
       _found.add(w);
@@ -1029,6 +1035,9 @@ class GameScreenState extends State<GameScreen> {
           await Haptics.vibrate(HapticsType.success);
         }
       }
+    } else if (result == SubmitResult.missingCenter) {
+      await Haptics.vibrate(HapticsType.error);
+      _wheelKey.currentState?.triggerPulse();
     } else if (result == SubmitResult.invalid) {
       await Haptics.vibrate(HapticsType.error);
       _shakeKey.currentState?.shake();
@@ -1042,6 +1051,8 @@ class GameScreenState extends State<GameScreen> {
         _message = 'Baax na!';
       } else if (result == SubmitResult.alreadyFound) {
         _message = 'Baax na (Ba pare)';
+      } else if (result == SubmitResult.missingCenter) {
+        _message = 'Araf bi ci biir!';
       } else {
         _message = 'Baaxul';
       }

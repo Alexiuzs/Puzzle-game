@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -23,10 +24,13 @@ class LetterWheel extends StatefulWidget {
 }
 
 class LetterWheelState extends State<LetterWheel>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _controller;
+  late final AnimationController _pulseController;
   late final Animation<double> _rotation;
+  late final Animation<double> _pulseScale;
   bool _swappedMidway = false;
+  bool _showWarning = false;
   VoidCallback? _pendingCallback;
 
   @override
@@ -36,10 +40,19 @@ class LetterWheelState extends State<LetterWheel>
       vsync: this,
       duration: const Duration(milliseconds: 650),
     );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
     _rotation = Tween<double>(
       begin: 0,
       end: 2 * pi,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    _pulseScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 50),
+    ]).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
 
     // Swap letters at the midpoint of the animation
     _controller.addListener(() {
@@ -54,6 +67,7 @@ class LetterWheelState extends State<LetterWheel>
   @override
   void dispose() {
     _controller.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -65,6 +79,20 @@ class LetterWheelState extends State<LetterWheel>
     _pendingCallback = onSwap;
     await _controller.forward(from: 0);
     _swappedMidway = false;
+  }
+
+  /// Pulses the center letter 5 times and shows the warning message
+  void triggerPulse() {
+    _pulseController.repeat(reverse: false).timeout(
+      const Duration(seconds: 1), // 200ms * 5 = 1s
+      onTimeout: () => _pulseController.stop(),
+    );
+    setState(() {
+      _showWarning = true;
+    });
+    Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showWarning = false);
+    });
   }
 
   @override
@@ -88,7 +116,7 @@ class LetterWheelState extends State<LetterWheel>
           final center = Offset(size / 2, size / 2);
 
           return AnimatedBuilder(
-            animation: _rotation,
+            animation: Listenable.merge([_rotation, _pulseScale]),
             builder: (context, _) {
               return SizedBox(
                 width: size,
@@ -124,19 +152,69 @@ class LetterWheelState extends State<LetterWheel>
                         );
                       }(),
 
-                    // Center circle — stays put
+                    // Center circle — stays put, but can pulse
                     Positioned(
                       left: center.dx - circleSize / 2,
                       top: center.dy - circleSize / 2,
-                      child: CircleButton(
-                        key: const ValueKey('center'),
-                        letter: widget.puzzle.centerLetter,
-                        isCenter: true,
-                        width: circleSize,
-                        onTap: () =>
-                            widget.onLetterTap(widget.puzzle.centerLetter),
+                      child: ScaleTransition(
+                        scale: _pulseScale,
+                        child: CircleButton(
+                          key: const ValueKey('center'),
+                          letter: widget.puzzle.centerLetter,
+                          isCenter: true,
+                          width: circleSize,
+                          onTap: () =>
+                              widget.onLetterTap(widget.puzzle.centerLetter),
+                        ),
                       ),
                     ),
+                    if (_showWarning)
+                      () {
+                        // Position top-left (around 240 degrees)
+                        const angle = 240 * (pi / 180);
+                        const radius = 1.35; // Further out than the outer circles
+                        final dx = center.dx + orbitRadius * radius * cos(angle);
+                        final dy = center.dy + orbitRadius * radius * sin(angle);
+
+                        return Positioned(
+                          left: dx - 100, // Center the text box
+                          top: dy - 80,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 220,
+                                child: Text(
+                                  "baat bu nekk war na am araf bii",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 22, // Bigger
+                                    height: 1.1,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black.withValues(alpha: 0.5),
+                                        blurRadius: 4,
+                                        offset: const Offset(1, 1),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Transform.rotate(
+                                angle: angle + pi / 2, // Rotate to point center
+                                child: const Icon(
+                                  Icons.arrow_downward,
+                                  color: Colors.red,
+                                  size: 60, // Much bigger
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }(),
                   ],
                 ),
               );
