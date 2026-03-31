@@ -33,7 +33,7 @@ void main(List<String> arguments) async {
   // action
 
   if (createWordlist) {
-    await index_creator.createWordlist();
+    await wordlist_creator.createWordlist();
   }
 
   if (createPuzzles) {
