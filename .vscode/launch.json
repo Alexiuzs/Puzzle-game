@@ -28,30 +28,30 @@
       "program": "bin/prebuilder.dart",
       "cwd": "${workspaceFolder}/prebuild",
       "toolArgs": ["pub", "run", "prebuild:prebuilder", "all"]
-    },
-    {
-      "name": "prebuild:prebuilder wordlist",
-    "type": "dart",
-      "request": "launch",
-      "program": "bin/prebuilder.dart",
-      "cwd": "${workspaceFolder}/prebuild",
-      "toolArgs": ["pub", "run", "prebuild:prebuilder", "wordlist"]
-    },
-    {
-      "name": "prebuild:prebuilder puzzle creation",
-      "type": "dart",
-      "request": "launch",
-      "program": "bin/prebuilder.dart",
-      "cwd": "${workspaceFolder}/prebuild",
-      "toolArgs": ["pub", "run", "prebuild:prebuilder", "puzzles"]
-    },
-    {
-      "name": "prebuild:test",
-      "type": "dart",
-      "request": "launch",
-      "program": "bin/test.dart",
-      "cwd": "${workspaceFolder}/prebuild",
-      "toolArgs": ["pub", "run", "prebuild:test"]
     }
+    // {
+    //   "name": "prebuild:prebuilder wordlist",
+    // "type": "dart",
+    //   "request": "launch",
+    //   "program": "bin/prebuilder.dart",
+    //   "cwd": "${workspaceFolder}/prebuild",
+    //   "toolArgs": ["pub", "run", "prebuild:prebuilder", "wordlist"]
+    // },
+    // {
+    //   "name": "prebuild:prebuilder puzzle creation",
+    //   "type": "dart",
+    //   "request": "launch",
+    //   "program": "bin/prebuilder.dart",
+    //   "cwd": "${workspaceFolder}/prebuild",
+    //   "toolArgs": ["pub", "run", "prebuild:prebuilder", "puzzles"]
+    // },
+    // {
+    //   "name": "prebuild:test",
+    //   "type": "dart",
+    //   "request": "launch",
+    //   "program": "bin/test.dart",
+    //   "cwd": "${workspaceFolder}/prebuild",
+    //   "toolArgs": ["pub", "run", "prebuild:test"]
+    // }
   ]
 }

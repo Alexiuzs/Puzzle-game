@@ -24,7 +24,7 @@ void test() async {
 }
 
 // Create a master wordlist from multiple sources
-void createWordlist() async {
+Future<void> createWordlist() async {
   print('beginning wordlist creation');
   // existing wordlists
   // from wolKYG Paratext project
