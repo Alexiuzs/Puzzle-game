@@ -35,12 +35,24 @@ class _CircleButtonState extends State<CircleButton> {
     // default gradients used when no override provided
     final centerGradient = isDark
         ? const LinearGradient(
-            colors: [Color(0xFFFFD54F), Color(0xFFFFB300)],
+            colors: [
+              Colors.amber,
+              Colors.amberAccent,
+              // Color.fromARGB(255, 76, 108, 176),
+              // Color.fromARGB(255, 76, 108, 176),
+            ],
+            // colors: [Colors.orange, Colors.orange],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           )
         : const LinearGradient(
-            colors: [Color(0xFFFFE082), Color(0xFFFFCA28)],
+            // colors: [Colors.orange, Colors.orange],
+            colors: [
+              Colors.amber,
+              Colors.amberAccent,
+              // Color.fromARGB(255, 76, 108, 176),
+              // Color.fromARGB(255, 76, 108, 176),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           );
@@ -59,6 +71,7 @@ class _CircleButtonState extends State<CircleButton> {
 
     final textColor = widget.isCenter
         ? Colors.black87
+        // ? Colors.white
         : (isDark ? Colors.white : Colors.black87);
 
     final highlightColor = isDark

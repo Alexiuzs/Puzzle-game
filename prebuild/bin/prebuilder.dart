@@ -1,4 +1,4 @@
-import 'package:prebuild/wordlist_creator.dart' as index_creator;
+import 'package:prebuild/wordlist_creator.dart' as wordlist_creator;
 import 'package:prebuild/puzzle_finder.dart' as puzzle_finder;
 
 void main(List<String> arguments) {
@@ -33,7 +33,7 @@ void main(List<String> arguments) {
   // action
 
   if (createWordlist) {
-    index_creator.createWordlist();
+    wordlist_creator.createWordlist();
   }
 
   if (createPuzzles) {

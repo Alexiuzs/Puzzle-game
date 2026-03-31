@@ -188,7 +188,12 @@ class LetterWheelState extends State<LetterWheel>
                           left: (size - 200) / 2,
                           bottom: (size - 100) / 3,
                           child: TopCallout(
-                            color: Theme.of(context).colorScheme.error,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.tertiaryContainer,
+                            textColor: Theme.of(
+                              context,
+                            ).colorScheme.onTertiaryContainer,
                             child: Text(
                               textAlign: TextAlign.center,
                               "baat bu nekk war na am araf bii",

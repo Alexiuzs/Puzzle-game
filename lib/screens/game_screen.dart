@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:confetti/confetti.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/puzzle.dart';
 import '../models/lexical_entry.dart';
@@ -392,6 +393,7 @@ class GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     var size = MediaQuery.sizeOf(context);
+    double progressBarDisplay = 0;
 
     bool wideScreen = size.width > 600 ? true : false;
 
@@ -523,10 +525,25 @@ class GameScreenState extends State<GameScreen> {
           children: [
             Consumer<PuzzleNotifier>(
               builder: (context, notifier, _) {
+                // TODO if found goes over a multiple of 20, flash a congratulations screen
+                final found = notifier.foundWords.length.toDouble();
+                if (found >= 1 && found <= 20) {
+                  progressBarDisplay = found;
+                }
+                progressBarDisplay = ((found - 1) % 20) + 1;
+
                 return LinearProgressIndicator(
-                  value: notifier.progressPercentage,
+                  value: progressBarDisplay / 20,
                   backgroundColor: Colors.grey[200],
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+
+                  // bucketOfTwenty(5);    // 0
+                  // bucketOfTwenty(20);   // 0
+                  // bucketOfTwenty(21);   // 1
+                  // bucketOfTwenty(40);   // 1
+                  // bucketOfTwenty(55);   // 2
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    colorList[(found - 1) ~/ 20],
+                  ),
                   minHeight: 8,
                 );
               },
@@ -1060,3 +1077,23 @@ class GameScreenState extends State<GameScreen> {
     _controller.clear();
   }
 }
+
+const List<Color> colorList = [
+  Colors.amber,
+  Colors.green,
+  Colors.blue,
+  Colors.orange,
+  Colors.purple,
+  Colors.lime,
+  Colors.teal,
+  Colors.pink,
+  Colors.indigo,
+  Colors.amber,
+  Colors.grey,
+  Colors.deepOrange,
+  Colors.deepPurple,
+  Colors.lightBlue,
+  Colors.lightGreen,
+  Colors.blueGrey,
+  Colors.black,
+];

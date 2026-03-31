@@ -206,22 +206,22 @@ void createWordlist() async {
 
   Map<String, List<int>> wolofIndex = {};
   for (int i = 0; i < wolofNjaayProverbs.length; i++) {
-    final lineNum = i;
+    final idx = i;
     final text = wolofNjaayProverbs[i];
     final words = text.toLowerCase().split(
       RegExp(r'[^\p{L}\p{N}]+', unicode: true),
     );
     for (var w in words) {
       wolofIndex.putIfAbsent(w, () => []);
-      if (wolofIndex[w]!.isEmpty || wolofIndex[w]!.last != lineNum) {
-        wolofIndex[w]!.add(lineNum);
+      if (wolofIndex[w]!.isEmpty || wolofIndex[w]!.last != idx) {
+        wolofIndex[w]!.add(idx);
       }
     }
   }
 
   Map<String, List<int>> solomonIndex = {};
   for (int i = 0; i < solomonProverbs.length; i++) {
-    final lineNum = i;
+    final idx = i;
     if (solomonProverbs[i].length > 1) {
       final text = solomonProverbs[i][1].toString();
       final words = text.toLowerCase().split(
@@ -229,8 +229,8 @@ void createWordlist() async {
       );
       for (var w in words) {
         solomonIndex.putIfAbsent(w, () => []);
-        if (solomonIndex[w]!.isEmpty || solomonIndex[w]!.last != lineNum) {
-          solomonIndex[w]!.add(lineNum);
+        if (solomonIndex[w]!.isEmpty || solomonIndex[w]!.last != idx) {
+          solomonIndex[w]!.add(idx);
         }
       }
     }

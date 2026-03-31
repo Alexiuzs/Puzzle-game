@@ -3,8 +3,14 @@ import 'package:flutter/material.dart';
 class TopCallout extends StatelessWidget {
   final Widget child;
   final Color color;
+  final Color textColor;
 
-  const TopCallout({super.key, required this.child, this.color = Colors.white});
+  const TopCallout({
+    super.key,
+    required this.child,
+    this.color = Colors.white,
+    this.textColor = Colors.black87,
+  });
 
   @override
   Widget build(BuildContext context) {
