@@ -12,11 +12,13 @@ import 'circle_button.dart';
 class LetterWheel extends StatefulWidget {
   final Puzzle puzzle;
   final void Function(String letter) onLetterTap;
+  final GlobalKey? centerKey;
 
   const LetterWheel({
     super.key,
     required this.puzzle,
     required this.onLetterTap,
+    this.centerKey,
   });
 
   @override
@@ -164,7 +166,7 @@ class LetterWheelState extends State<LetterWheel>
                       child: ScaleTransition(
                         scale: _pulseScale,
                         child: CircleButton(
-                          key: const ValueKey('center'),
+                          key: widget.centerKey ?? const ValueKey('center'),
                           letter: widget.puzzle.centerLetter,
                           isCenter: true,
                           width: circleSize,

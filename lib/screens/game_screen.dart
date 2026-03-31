@@ -10,7 +10,6 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:confetti/confetti.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../models/puzzle.dart';
 import '../models/lexical_entry.dart';
@@ -21,6 +20,9 @@ import '../widgets/letter_wheel.dart';
 import '../widgets/word_list.dart';
 import '../widgets/shake_widget.dart';
 import '../theme_notifier.dart';
+import '../widgets/instructions_page.dart';
+import '../widgets/onboarding_overlay.dart';
+import '../widgets/progress_thermometer.dart';
 
 enum SubmitResult { success, alreadyFound, invalid, missingCenter }
 
@@ -281,7 +283,7 @@ class PuzzleNotifier extends ChangeNotifier {
   }
 
   String generateShareText() {
-    if (_puzzle == null) return "Wolofle...";
+    if (_puzzle == null) return "Wure Kaŋ-fóore...";
 
     final percentage = maxPossibleScore > 0
         ? (score / maxPossibleScore * 100).toStringAsFixed(0)
@@ -290,7 +292,7 @@ class PuzzleNotifier extends ChangeNotifier {
     final dateStr = DateFormat('yyyy-MM-dd').format(_currentDate);
 
     // Core stats
-    String share = "Wolofle - $dateStr\n";
+    String share = "Wure Kaŋ-fóore - $dateStr\n";
     share += "Score: $score ($percentage%)\n";
     share += "Rank: $currentRank\n";
     share += "Words Found: ${_found.length} / $totalPossible\n\n";
@@ -367,7 +369,15 @@ class GameScreenState extends State<GameScreen> {
   String _wologramBanner = '';
   final GlobalKey<ShakeWidgetState> _shakeKey = GlobalKey<ShakeWidgetState>();
   final GlobalKey<LetterWheelState> _wheelKey = GlobalKey<LetterWheelState>();
+  final GlobalKey _centerKey = GlobalKey();
+  final GlobalKey _submitKey = GlobalKey();
+  final GlobalKey _backspaceKey = GlobalKey();
+  final GlobalKey _shuffleKey = GlobalKey();
+  final GlobalKey _progressKey = GlobalKey();
+  final GlobalKey _menuKey = GlobalKey();
+
   late ConfettiController _confettiController;
+  bool _showOnboarding = false;
 
   @override
   void initState() {
@@ -380,6 +390,27 @@ class GameScreenState extends State<GameScreen> {
     // fire off initialization
     Timer.run(() async {
       await _notifier.initialize();
+      _checkOnboarding();
+    });
+  }
+
+  Future<void> _checkOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool('onboarding_shown_v1') ?? false;
+    if (!shown) {
+      if (!mounted) return;
+      setState(() {
+        _showOnboarding = true;
+      });
+    }
+  }
+
+  Future<void> _markOnboardingShown() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_shown_v1', true);
+    if (!mounted) return;
+    setState(() {
+      _showOnboarding = false;
     });
   }
 
@@ -403,9 +434,13 @@ class GameScreenState extends State<GameScreen> {
         title: Consumer<PuzzleNotifier>(
           builder: (context, notifier, _) {
             return PopupMenuButton<String>(
-              child: const Row(
+              child: Row(
+                key: _menuKey,
                 mainAxisSize: MainAxisSize.min,
-                children: [Text('Wolofle'), Icon(Icons.arrow_drop_down)],
+                children: const [
+                  Text('Wure Kaŋ-fóore'),
+                  Icon(Icons.arrow_drop_down),
+                ],
               ),
               onSelected: (value) async {
                 if (value == 'share') {
@@ -415,6 +450,14 @@ class GameScreenState extends State<GameScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Copied results to clipboard!'),
+                    ),
+                  );
+                } else if (value == 'instructions') {
+                  if (!context.mounted) return;
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const InstructionsPage(),
+                      fullscreenDialog: true,
                     ),
                   );
                 } else if (value == 'theme') {
@@ -429,6 +472,13 @@ class GameScreenState extends State<GameScreen> {
                   child: ListTile(
                     leading: Icon(Icons.share),
                     title: Text('Séedoo ko (Share)'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'instructions',
+                  child: ListTile(
+                    leading: Icon(Icons.help_outline),
+                    title: Text('Naka lañu ciyaar (How to play)'),
                   ),
                 ),
                 PopupMenuItem(
@@ -447,13 +497,17 @@ class GameScreenState extends State<GameScreen> {
                   ),
                 ),
                 PopupMenuItem(
-                  enabled: false,
-                  child: Text(
-                    'Baat yi (Total words): ${notifier.totalPossible}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color.fromARGB(255, 71, 57, 13),
-                      fontWeight: FontWeight.bold,
+                  value: 'theme',
+                  child: ListTile(
+                    leading: Icon(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Icons.light_mode
+                          : Icons.dark_mode,
+                    ),
+                    title: Text(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? 'Melo bu woyof (Light Mode)'
+                          : 'Melo bu lëndëm (Dark Mode)',
                     ),
                   ),
                 ),
@@ -464,36 +518,26 @@ class GameScreenState extends State<GameScreen> {
         actions: [
           Consumer<PuzzleNotifier>(
             builder: (context, notifier, _) {
-              final canHint = notifier.progressPercentage >= 0.25;
-              return IconButton(
-                icon: const Icon(Icons.lightbulb_outline),
-                tooltip: canHint
-                    ? 'Hints'
-                    : 'Find 25% of words to unlock hints',
-                onPressed: canHint
-                    ? () {
-                        final hints = notifier.getHints();
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Indi yi (Hint Letters)'),
-                            content: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: hints
-                                  .map((h) => Chip(label: Text(h)))
-                                  .toList(),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Baax na'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                    : null,
+              return Theme(
+                data: Theme.of(context).copyWith(
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                ),
+                child: PopupMenuButton<String>(
+                  tooltip: 'Sa dem-kanam (Progress)',
+                  offset: const Offset(0, 50),
+                  icon: const Icon(Icons.bar_chart),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      enabled: false,
+                      padding: EdgeInsets.zero,
+                      child: ProgressThermometer(
+                        currentWords: notifier.foundWords.length,
+                        totalPossibleWords: notifier.totalPossible,
+                      ),
+                    ),
+                  ],
+                ),
               );
             },
           ),
@@ -533,14 +577,9 @@ class GameScreenState extends State<GameScreen> {
                 progressBarDisplay = ((found - 1) % 20) + 1;
 
                 return LinearProgressIndicator(
+                  key: _progressKey,
                   value: progressBarDisplay / 20,
                   backgroundColor: Colors.grey[200],
-
-                  // bucketOfTwenty(5);    // 0
-                  // bucketOfTwenty(20);   // 0
-                  // bucketOfTwenty(21);   // 1
-                  // bucketOfTwenty(40);   // 1
-                  // bucketOfTwenty(55);   // 2
                   valueColor: AlwaysStoppedAnimation<Color>(
                     colorList[(found - 1) ~/ 20],
                   ),
@@ -561,11 +600,14 @@ class GameScreenState extends State<GameScreen> {
 
                   Widget wheel = LetterWheel(
                     key: _wheelKey,
+                    centerKey: _centerKey,
                     puzzle: puzzle,
                     onLetterTap: (l) {
                       if (!acceptedLetters.contains(l)) return;
                       _controller.text += l;
-                      setState(() {});
+                      setState(() {
+                        _message = ''; // Clear message on input
+                      });
                     },
                   );
                   List<Widget> input = [
@@ -574,6 +616,7 @@ class GameScreenState extends State<GameScreen> {
                       children: [
                         // Erase last letter button
                         IconButton.filled(
+                          key: _backspaceKey,
                           onPressed: () {
                             if (_controller.text.isNotEmpty) {
                               // Remove last character (handles multi-byte Wolof characters)
@@ -621,10 +664,10 @@ class GameScreenState extends State<GameScreen> {
                         const SizedBox(width: 8),
                         // Submit button
                         ElevatedButton(
+                          key: _submitKey,
                           onPressed: _handleSubmit,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors
-                                .green, // const Color.fromARGB(255, 26, 162, 49),
+                            backgroundColor: Colors.green,
                             foregroundColor: Colors.black,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -648,6 +691,7 @@ class GameScreenState extends State<GameScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         TextButton.icon(
+                          key: _shuffleKey,
                           onPressed: () {
                             _wheelKey.currentState?.triggerShuffle(
                               notifier.shuffleOuter,
@@ -717,7 +761,7 @@ class GameScreenState extends State<GameScreen> {
                     ),
                   ];
 
-                  return Stack(
+                  Widget mainStack = Stack(
                     alignment: Alignment.topCenter,
                     children: [
                       Padding(
@@ -1013,6 +1057,60 @@ class GameScreenState extends State<GameScreen> {
                               ),
                             ),
                           ),
+                        ),
+                    ],
+                  );
+
+                  return Stack(
+                    children: [
+                      mainStack,
+                      if (_showOnboarding)
+                        OnboardingOverlay(
+                          onFinish: _markOnboardingShown,
+                          steps: [
+                            OnboardingStep(
+                              targetKey: _menuKey,
+                              title: 'Dalal jàmm ci Wure Kaŋ-fóore!',
+                              description:
+                                  'Gisal ay baat yu bare ci 7 araf yi ñu jox.\n\nTrouvez autant de mots que possible en utilisant les 7 lettres proposées.',
+                            ),
+                            OnboardingStep(
+                              targetKey: _wheelKey,
+                              title: 'Kërug araf yi',
+                              description:
+                                  'Jëfandikool araf yi nekk ci kër gi ngir gisal ay baat.\n\nUtilisez les lettres dans le cercle pour former des mots.',
+                            ),
+                            OnboardingStep(
+                              targetKey: _centerKey,
+                              title: 'Baat bi ngay bind',
+                              description:
+                                  '• Baat bu nekk war na am lu gën a tollu ci 3 araf.\n• Baat bu nekk war na am araf bii.\n• Mën nga jëfandikoo araf yi lu bari.\n\nChaque mot doit contenir au moins 3 lettres et inclure la lettre centrale.',
+                            ),
+                            OnboardingStep(
+                              targetKey: _submitKey,
+                              title: 'Yónni ko',
+                              description:
+                                  'Bësal fii ngir yónni baat bi nga gisal.\n\nAppuyez ici pour valider votre mot.',
+                            ),
+                            OnboardingStep(
+                              targetKey: _backspaceKey,
+                              title: 'Far ko',
+                              description:
+                                  'Bësal fii ngir far araf bi gëna teggu.\n\nAppuyez ici pour effacer la dernière lettre.',
+                            ),
+                            OnboardingStep(
+                              targetKey: _shuffleKey,
+                              title: 'Yëngal araf yi',
+                              description:
+                                  'Bësal fii ngir jaxase araf yi.\n\nAppuyez ici pour mélanger les lettres.',
+                            ),
+                            OnboardingStep(
+                              targetKey: _progressKey,
+                              title: 'Sa dem-kanam',
+                              description:
+                                  'Fii ngay gisee naka ngay deme ak sa point yi.\n\nSuivez votre progression et votre score ici.',
+                            ),
+                          ],
                         ),
                     ],
                   );
