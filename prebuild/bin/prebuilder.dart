@@ -1,7 +1,7 @@
 import 'package:prebuild/wordlist_creator.dart' as wordlist_creator;
 import 'package:prebuild/puzzle_finder.dart' as puzzle_finder;
 
-void main(List<String> arguments) {
+void main(List<String> arguments) async {
   if (arguments.isEmpty ||
       (!arguments.contains('wordlist') &&
           !arguments.contains('puzzles') &&
@@ -33,10 +33,10 @@ void main(List<String> arguments) {
   // action
 
   if (createWordlist) {
-    wordlist_creator.createWordlist();
+    await wordlist_creator.createWordlist();
   }
 
   if (createPuzzles) {
-    puzzle_finder.preCookPuzzles();
+    await puzzle_finder.preCookPuzzles();
   }
 }
