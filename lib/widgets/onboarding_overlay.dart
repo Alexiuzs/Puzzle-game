@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 
+enum HighlightShape { rectangle, circle }
+
 class OnboardingStep {
   final GlobalKey targetKey;
   final String title;
   final String description;
   final TextAlign textAlign;
+  final HighlightShape shape;
+  final Offset tweakOffset;
 
   OnboardingStep({
     required this.targetKey,
     required this.title,
     required this.description,
     this.textAlign = TextAlign.center,
+    this.shape = HighlightShape.rectangle,
+    this.tweakOffset = Offset.zero,
   });
 }
 
@@ -51,7 +57,10 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
     if (widget.steps.isEmpty) return const SizedBox.shrink();
 
     final currentStep = widget.steps[_currentStepIndex];
-    final Rect? targetRect = _getWidgetRect(currentStep.targetKey);
+    Rect? targetRect = _getWidgetRect(currentStep.targetKey);
+    if (targetRect != null) {
+      targetRect = targetRect.shift(currentStep.tweakOffset);
+    }
 
     return Material(
       color: Colors.transparent,
@@ -62,7 +71,10 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
             onTap: _nextStep,
             child: CustomPaint(
               size: MediaQuery.of(context).size,
-              painter: HolePainter(targetRect: targetRect),
+              painter: HolePainter(
+                targetRect: targetRect,
+                shape: currentStep.shape,
+              ),
             ),
           ),
           // Instruction content
@@ -121,19 +133,22 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
   }
 
   Widget _buildInstructionBox(
-      BuildContext context, OnboardingStep step, Rect targetRect) {
+    BuildContext context,
+    OnboardingStep step,
+    Rect targetRect,
+  ) {
     final screenSize = MediaQuery.of(context).size;
-    
+
     // Determine position (above or below the target)
     double? top;
     double? bottom;
-    
+
     if (targetRect.center.dy > screenSize.height / 2) {
       // Target is in bottom half, show box above
       bottom = screenSize.height - targetRect.top + 12;
     } else {
       // Target is in top half, show box below
-      top = targetRect.bottom + 12;
+      top = targetRect.bottom + 20;
     }
 
     return Positioned(
@@ -211,36 +226,42 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
 
 class HolePainter extends CustomPainter {
   final Rect? targetRect;
+  final HighlightShape shape;
 
-  HolePainter({this.targetRect});
+  HolePainter({this.targetRect, this.shape = HighlightShape.rectangle});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.black.withOpacity(0.8);
-    
+
     if (targetRect == null) {
       canvas.drawRect(Offset.zero & size, paint);
       return;
     }
 
-    // Path for the background with a hole
-    final backgroundPath = Path()..addRect(Offset.zero & size);
-    
-    // Create a rounded rect for the hole to make it look nicer
-    final RRect rRect = RRect.fromRectAndRadius(
-      targetRect!.inflate(10), // Padding around the target
-      const Radius.circular(15),
-    );
-    final holePath = Path()..addRRect(rRect);
+    final path = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size);
 
-    // XOR the paths to create the hole
-    final combinedPath = Path.combine(
-      PathOperation.difference,
-      backgroundPath,
-      holePath,
-    );
+    if (shape == HighlightShape.circle) {
+      final radius =
+          (targetRect!.width > targetRect!.height
+                  ? targetRect!.width
+                  : targetRect!.height) /
+              2 +
+          10;
+      path.addOval(
+        Rect.fromCircle(center: targetRect!.center, radius: radius),
+      );
+    } else {
+      final RRect rRect = RRect.fromRectAndRadius(
+        targetRect!.inflate(10), // Padding around the target
+        const Radius.circular(15),
+      );
+      path.addRRect(rRect);
+    }
 
-    canvas.drawPath(combinedPath, paint);
+    canvas.drawPath(path, paint);
 
     // Draw a prominent glowing highlight around the hole
     final highlightGlowPaint = Paint()
@@ -254,8 +275,23 @@ class HolePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
-    canvas.drawRRect(rRect, highlightGlowPaint);
-    canvas.drawRRect(rRect, highlightBorderPaint);
+    if (shape == HighlightShape.circle) {
+      final radius =
+          (targetRect!.width > targetRect!.height
+                  ? targetRect!.width
+                  : targetRect!.height) /
+              2 +
+          10;
+      canvas.drawCircle(targetRect!.center, radius, highlightGlowPaint);
+      canvas.drawCircle(targetRect!.center, radius, highlightBorderPaint);
+    } else {
+      final RRect rRect = RRect.fromRectAndRadius(
+        targetRect!.inflate(10), // Padding around the target
+        const Radius.circular(15),
+      );
+      canvas.drawRRect(rRect, highlightGlowPaint);
+      canvas.drawRRect(rRect, highlightBorderPaint);
+    }
   }
 
   @override

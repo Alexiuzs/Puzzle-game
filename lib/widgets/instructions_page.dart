@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class InstructionsPage extends StatefulWidget {
-  const InstructionsPage({super.key});
+  final VoidCallback? onReplayDemo;
+
+  const InstructionsPage({super.key, this.onReplayDemo});
 
   @override
   State<InstructionsPage> createState() => _InstructionsPageState();
@@ -94,6 +96,25 @@ class _InstructionsPageState extends State<InstructionsPage> {
               theme: theme,
             ),
             const SizedBox(height: 32),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  widget.onReplayDemo?.call();
+                  Navigator.of(context).pop();
+                },
+                icon: const Icon(Icons.play_circle_outline),
+                label: Text(
+                  isWolof ? 'Léeralaat mbir mi' : 'Revoir la démonstration',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primaryContainer,
+                  foregroundColor: colorScheme.onPrimaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
             Center(
               child: Text(
                 isWolof ? 'Jàmm rekk ak mbégt' : 'Bonne chance et amusez-vous',

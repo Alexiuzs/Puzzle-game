@@ -428,9 +428,11 @@ class GameScreenState extends State<GameScreen> {
 
     bool wideScreen = size.width > 600 ? true : false;
 
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: false,
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            centerTitle: false,
         title: Consumer<PuzzleNotifier>(
           builder: (context, notifier, _) {
             return PopupMenuButton<String>(
@@ -456,7 +458,14 @@ class GameScreenState extends State<GameScreen> {
                   if (!context.mounted) return;
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => const InstructionsPage(),
+                      builder: (context) => InstructionsPage(
+                        onReplayDemo: () {
+                          if (!mounted) return;
+                          setState(() {
+                            _showOnboarding = true;
+                          });
+                        },
+                      ),
                       fullscreenDialog: true,
                     ),
                   );
@@ -496,21 +505,7 @@ class GameScreenState extends State<GameScreen> {
                     ),
                   ),
                 ),
-                PopupMenuItem(
-                  value: 'theme',
-                  child: ListTile(
-                    leading: Icon(
-                      Theme.of(context).brightness == Brightness.dark
-                          ? Icons.light_mode
-                          : Icons.dark_mode,
-                    ),
-                    title: Text(
-                      Theme.of(context).brightness == Brightness.dark
-                          ? 'Melo bu woyof (Light Mode)'
-                          : 'Melo bu lëndëm (Dark Mode)',
-                    ),
-                  ),
-                ),
+
               ],
             );
           },
@@ -690,16 +685,16 @@ class GameScreenState extends State<GameScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        TextButton.icon(
+                        IconButton(
                           key: _shuffleKey,
                           onPressed: () {
                             _wheelKey.currentState?.triggerShuffle(
                               notifier.shuffleOuter,
                             );
                           },
-                          icon: const Icon(Icons.cached, size: 16),
-                          label: const Text('Yëngal (Shuffle)'),
-                          style: TextButton.styleFrom(
+                          icon: const Icon(Icons.cached, size: 24),
+                          tooltip: 'Yëngal (Shuffle)',
+                          style: IconButton.styleFrom(
                             foregroundColor: Theme.of(
                               context,
                             ).colorScheme.onSurface.withValues(alpha: 0.7),
@@ -1061,67 +1056,69 @@ class GameScreenState extends State<GameScreen> {
                     ],
                   );
 
-                  return Stack(
-                    children: [
-                      mainStack,
-                      if (_showOnboarding)
-                        OnboardingOverlay(
-                          onFinish: _markOnboardingShown,
-                          steps: [
-                            OnboardingStep(
-                              targetKey: _menuKey,
-                              title: 'Dalal jàmm ci Wure Kaŋ-fóore!',
-                              description:
-                                  'Gisal ay baat yu bare ci 7 araf yi ñu jox.\n\nTrouvez autant de mots que possible en utilisant les 7 lettres proposées.',
-                            ),
-                            OnboardingStep(
-                              targetKey: _wheelKey,
-                              title: 'Kërug araf yi',
-                              description:
-                                  'Jëfandikool araf yi nekk ci kër gi ngir gisal ay baat.\n\nUtilisez les lettres dans le cercle pour former des mots.',
-                            ),
-                            OnboardingStep(
-                              targetKey: _centerKey,
-                              title: 'Baat bi ngay bind',
-                              description:
-                                  '• Baat bu nekk war na am lu gën a tollu ci 3 araf.\n• Baat bu nekk war na am araf bii.\n• Mën nga jëfandikoo araf yi lu bari.\n\nChaque mot doit contenir au moins 3 lettres et inclure la lettre centrale.',
-                            ),
-                            OnboardingStep(
-                              targetKey: _submitKey,
-                              title: 'Yónni ko',
-                              description:
-                                  'Bësal fii ngir yónni baat bi nga gisal.\n\nAppuyez ici pour valider votre mot.',
-                            ),
-                            OnboardingStep(
-                              targetKey: _backspaceKey,
-                              title: 'Far ko',
-                              description:
-                                  'Bësal fii ngir far araf bi gëna teggu.\n\nAppuyez ici pour effacer la dernière lettre.',
-                            ),
-                            OnboardingStep(
-                              targetKey: _shuffleKey,
-                              title: 'Yëngal araf yi',
-                              description:
-                                  'Bësal fii ngir jaxase araf yi.\n\nAppuyez ici pour mélanger les lettres.',
-                            ),
-                            OnboardingStep(
-                              targetKey: _progressKey,
-                              title: 'Sa dem-kanam',
-                              description:
-                                  'Fii ngay gisee naka ngay deme ak sa point yi.\n\nSuivez votre progression et votre score ici.',
-                            ),
-                          ],
-                        ),
-                    ],
-                  );
+                  return mainStack;
                 },
               ),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+    if (_showOnboarding)
+      OnboardingOverlay(
+        onFinish: _markOnboardingShown,
+        steps: [
+          OnboardingStep(
+            targetKey: _menuKey,
+            title: 'Dalal ak tjàmm ci Wure Kaŋ-fóore!',
+            description:
+                ' Wuutal ay baat yu bare ci 7 araf yi ñu jox.\n\nTrouvez autant de mots que possible en utilisant les 7 lettres proposées.',
+          ),
+          OnboardingStep(
+            targetKey: _wheelKey,
+            title: 'Wure araf yi',
+            description:
+                'Jëfandikool araf yi nekk ci Wure bi ngir defar ay baat.\n\nUtilisez les lettres dans le cercle pour former des mots.',
+            shape: HighlightShape.circle,
+            tweakOffset: const Offset(0, 0),
+          ),
+          OnboardingStep(
+            targetKey: _centerKey,
+            title: 'Baat bi ngay bind',
+            description:
+                '• Baat bu nekk war na am 3 araf dem ci kaw.\n• Baat bu nekk war na am araf bu nekk ci digg bi.\n• Mën nga jëfandikoowat araf yi ay yooni yoon.\n\nChaque mot doit contenir au moins 3 lettres et inclure la lettre centrale.',
+            shape: HighlightShape.circle,
+            tweakOffset: const Offset(0, 0),
+          ),
+          OnboardingStep(
+            targetKey: _submitKey,
+            title: 'Yónni ko',
+            description:
+                'Bësal fii ngir yónni sa baat ngir natt ko.\n\nAppuyez ici pour valider votre mot.',
+          ),
+          OnboardingStep(
+            targetKey: _backspaceKey,
+            title: 'Faar ko',
+            description:
+                'Bësal fii ngir faar araf bi gëna teggu.\n\nAppuyez ici pour effacer la dernière lettre.',
+          ),
+          OnboardingStep(
+            targetKey: _shuffleKey,
+            title: 'Yëngal araf yi',
+            description:
+                'Bësal fii ngir jaxase araf yi.\n\nAppuyez ici pour mélanger les lettres.',
+          ),
+          OnboardingStep(
+            targetKey: _progressKey,
+            title: 'Sa dem-kanam',
+            description:
+                'Fii ngay gisee naka ngay deme ak sa point yi.\n\nSuivez votre progression et score ici.',
+          ),
+        ],
+      ),
+    ],
+  );
+}
 
   Future<void> _handleSubmit() async {
     final result = _notifier.submit(_controller.text);
