@@ -175,13 +175,7 @@ class LetterWheelState extends State<LetterWheel>
                     if (_showWarning)
                       () {
                         // Position top-left (around 240 degrees)
-                        const angle = 240 * (pi / 180);
-                        const radius =
-                            1.35; // Further out than the outer circles
-                        final dx =
-                            center.dx + orbitRadius * radius * cos(angle);
-                        final dy =
-                            center.dy + orbitRadius * radius * sin(angle);
+                        // Positioned relative to the wheel area
 
                         return Positioned(
                           left: (size - 200) / 2,

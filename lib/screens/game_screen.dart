@@ -16,6 +16,7 @@ import '../models/lexical_entry.dart';
 import '../services/alphabet_loader.dart';
 import '../services/puzzle_generator.dart';
 import '../services/word_validator.dart';
+import '../services/feedback_service.dart';
 import '../widgets/letter_wheel.dart';
 import '../widgets/word_list.dart';
 import '../widgets/shake_widget.dart';
@@ -678,8 +679,11 @@ class GameScreenState extends State<GameScreen> {
                       );
                     } else if (value == 'theme') {
                       context.read<ThemeNotifier>().toggleTheme(
-                        !context.read<ThemeNotifier>().isDarkMode,
-                      );
+                            !context.read<ThemeNotifier>().isDarkMode,
+                          );
+                    } else if (value == 'report') {
+                      if (!context.mounted) return;
+                      _showFeedbackDialog(context);
                     }
                   },
                   itemBuilder: (context) => [
@@ -710,6 +714,13 @@ class GameScreenState extends State<GameScreen> {
                               ? 'Melo bu woyof (Light Mode)'
                               : 'Melo bu lëndëm (Dark Mode)',
                         ),
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'report',
+                      child: ListTile(
+                        leading: Icon(Icons.report_problem),
+                        title: Text('Rappooru njuumbe (Error Report)'),
                       ),
                     ),
                   ],
@@ -1373,9 +1384,41 @@ class GameScreenState extends State<GameScreen> {
                                               ),
                                               if (ref != '')
                                                 Text(
-                                                  '\t\tKàddu yu Xelu $ref',
+                                                   '\t\tKàddu yu Xelu $ref',
                                                   style: refStyle,
                                                 ),
+                                              const SizedBox(height: 12),
+                                              Align(
+                                                alignment: Alignment.centerRight,
+                                                child: TextButton.icon(
+                                                  onPressed: () =>
+                                                      _showFeedbackDialog(
+                                                    context,
+                                                    word: notifier
+                                                        .activeLexicalEntry!
+                                                        .word,
+                                                    isDefinition: true,
+                                                  ),
+                                                  icon: const Icon(
+                                                    Icons.lightbulb_outline,
+                                                    size: 16,
+                                                  ),
+                                                  label: const Text(
+                                                    'Indil sarya bi (Suggest definition)',
+                                                    style:
+                                                        TextStyle(fontSize: 12),
+                                                  ),
+                                                  style: TextButton.styleFrom(
+                                                    foregroundColor: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
                                             ],
                                           );
                                         },
@@ -1508,6 +1551,69 @@ class GameScreenState extends State<GameScreen> {
       }
     });
     _controller.clear();
+  }
+
+  void _showFeedbackDialog(BuildContext context,
+      {String? word, bool isDefinition = false}) {
+    final TextEditingController feedbackController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isDefinition
+            ? 'Indil sarya bi (Suggest definition)'
+            : 'Rappooru njuumbe (Error Report)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (word != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text('Baat bi (Word): $word',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            TextField(
+              controller: feedbackController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                hintText: 'Bindil sa jàppale ci wii baat...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Féexal (Cancel)'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final message = feedbackController.text;
+              if (message.trim().isEmpty) return;
+
+              Navigator.pop(context);
+              final success = await FeedbackService.sendErrorReport(
+                messageText: message,
+                word: word,
+                context: isDefinition ? 'Definition Suggestion' : 'General',
+              );
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success
+                        ? 'Jërëjëf! Sa rappoor jot nañu ko.'
+                        : 'Njuumbe am na ci yébal bi. Jéemal ko ëllëg.'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Yone (Send)'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

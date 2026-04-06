@@ -83,42 +83,78 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
           // Instruction content
           if (targetRect != null)
             _buildInstructionBox(context, currentStep, targetRect),
-          // Progress indicators
+          // Progress indicators and buttons
           Positioned(
             bottom: 40,
-            left: 0,
-            right: 0,
+            left: 20,
+            right: 20,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ...List.generate(
-                  widget.steps.length,
-                  (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: index == _currentStepIndex
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.3),
+                // Progress dots
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(
+                    widget.steps.length,
+                    (index) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: index == _currentStepIndex
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.3),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                TextButton.icon(
-                  onPressed: _skip,
-                  icon: const Icon(
-                    Icons.keyboard_double_arrow_right,
-                    color: Colors.white,
-                  ),
-                  label: const Text(
-                    'Féexal',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                // Navigation Buttons (Fixed Position)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _nextStep,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        _currentStepIndex == widget.steps.length - 1
+                            ? 'Dorr ko (Start)'
+                            : 'Li ci tegg (Next)',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: _skip,
+                      icon: const Icon(
+                        Icons.keyboard_double_arrow_right,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      label: const Text(
+                        'Féexal',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -195,27 +231,6 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                       color: Colors.white,
                       fontSize: 16,
                       height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _nextStep,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 12,
-                      ),
-                    ),
-                    child: Text(
-                      _currentStepIndex == widget.steps.length - 1
-                          ? 'Dorr ko (Start)'
-                          : 'Li ci tegg (Next)',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
