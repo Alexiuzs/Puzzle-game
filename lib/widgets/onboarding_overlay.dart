@@ -10,6 +10,7 @@ class OnboardingStep {
   final TextAlign textAlign;
   final HighlightShape shape;
   final Offset tweakOffset;
+  final double padding;
 
   OnboardingStep({
     required this.targetKey,
@@ -18,6 +19,7 @@ class OnboardingStep {
     this.textAlign = TextAlign.center,
     this.shape = HighlightShape.rectangle,
     this.tweakOffset = Offset.zero,
+    this.padding = 10,
   });
 }
 
@@ -74,28 +76,13 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
               painter: HolePainter(
                 targetRect: targetRect,
                 shape: currentStep.shape,
+                padding: currentStep.padding,
               ),
             ),
           ),
           // Instruction content
           if (targetRect != null)
             _buildInstructionBox(context, currentStep, targetRect),
-          // Skip button
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            right: 20,
-            child: TextButton(
-              onPressed: _skip,
-              child: const Text(
-                'Féexal (Skip)',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-          ),
           // Progress indicators
           Positioned(
             bottom: 40,
@@ -103,20 +90,37 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
             right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                widget.steps.length,
-                (index) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: index == _currentStepIndex
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.3),
+              children: [
+                ...List.generate(
+                  widget.steps.length,
+                  (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _currentStepIndex
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.3),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 16),
+                TextButton.icon(
+                  onPressed: _skip,
+                  icon: const Icon(
+                    Icons.keyboard_double_arrow_right,
+                    color: Colors.white,
+                  ),
+                  label: const Text(
+                    'Féexal',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -227,8 +231,13 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
 class HolePainter extends CustomPainter {
   final Rect? targetRect;
   final HighlightShape shape;
+  final double padding;
 
-  HolePainter({this.targetRect, this.shape = HighlightShape.rectangle});
+  HolePainter({
+    this.targetRect,
+    this.shape = HighlightShape.rectangle,
+    this.padding = 10,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -249,13 +258,13 @@ class HolePainter extends CustomPainter {
                   ? targetRect!.width
                   : targetRect!.height) /
               2 +
-          10;
+          padding;
       path.addOval(
         Rect.fromCircle(center: targetRect!.center, radius: radius),
       );
     } else {
       final RRect rRect = RRect.fromRectAndRadius(
-        targetRect!.inflate(10), // Padding around the target
+        targetRect!.inflate(padding), // Padding around the target
         const Radius.circular(15),
       );
       path.addRRect(rRect);
@@ -281,12 +290,12 @@ class HolePainter extends CustomPainter {
                   ? targetRect!.width
                   : targetRect!.height) /
               2 +
-          10;
+          padding;
       canvas.drawCircle(targetRect!.center, radius, highlightGlowPaint);
       canvas.drawCircle(targetRect!.center, radius, highlightBorderPaint);
     } else {
       final RRect rRect = RRect.fromRectAndRadius(
-        targetRect!.inflate(10), // Padding around the target
+        targetRect!.inflate(padding), // Padding around the target
         const Radius.circular(15),
       );
       canvas.drawRRect(rRect, highlightGlowPaint);

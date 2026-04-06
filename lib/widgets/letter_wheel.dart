@@ -109,11 +109,8 @@ class LetterWheelState extends State<LetterWheel>
         .toList();
 
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: Theme.of(
-          context,
-        ).colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {

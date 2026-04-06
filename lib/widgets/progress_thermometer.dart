@@ -4,12 +4,14 @@ class ProgressThermometer extends StatelessWidget {
   final int currentWords;
   final int totalPossibleWords;
   final String? username;
+  final VoidCallback? onUsernameChange;
 
   const ProgressThermometer({
     super.key,
     required this.currentWords,
     required this.totalPossibleWords,
     this.username,
+    this.onUsernameChange,
   });
 
   @override
@@ -34,13 +36,29 @@ class ProgressThermometer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (username != null && username!.isNotEmpty) ...[
-            Text(
-              username!,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    username!,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: onUsernameChange,
+                  icon: const Icon(Icons.edit, size: 18),
+                  tooltip: 'soppi sa tur',
+                  style: IconButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             const Divider(),

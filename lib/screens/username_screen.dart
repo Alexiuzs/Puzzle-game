@@ -16,6 +16,17 @@ class _UsernameScreenState extends State<UsernameScreen> {
   void initState() {
     super.initState();
     _controller = TextEditingController();
+    // Pre-fill existing name if available, otherwise generate random
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final notifier = context.read<PuzzleNotifier>();
+      if (notifier.username != null && notifier.username!.isNotEmpty) {
+        setState(() {
+          _controller.text = notifier.username!;
+        });
+      } else {
+        _generateRandom();
+      }
+    });
   }
 
   @override
@@ -60,7 +71,7 @@ class _UsernameScreenState extends State<UsernameScreen> {
             const Icon(Icons.account_circle, size: 80, color: Colors.green),
             const SizedBox(height: 24),
             Text(
-              'Noo tudd?',
+              _controller.text.isEmpty ? 'Noo tudd?' : 'Soppi sa tur?',
               style: Theme.of(
                 context,
               ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
