@@ -11,6 +11,7 @@ class LexicalEntry {
   final String? wolofNjaay;
   final String? solomonProverb;
   final String? solomonRef;
+  final List<String> derivatives;
 
   LexicalEntry({
     required this.word,
@@ -20,9 +21,13 @@ class LexicalEntry {
     this.wolofNjaay,
     this.solomonProverb,
     this.solomonRef,
+    this.derivatives = const [],
   });
 
-  static Future<LexicalEntry> fromJson(Map<String, dynamic> json) async {
+  static Future<LexicalEntry> fromJson(
+    Map<String, dynamic> json, {
+    List<String> derivatives = const [],
+  }) async {
     String? wolofNjaay;
     String? solomonProverb;
     String? solomonRef;
@@ -61,6 +66,7 @@ class LexicalEntry {
       wolofNjaay: wolofNjaay,
       solomonProverb: solomonProverb,
       solomonRef: solomonRef,
+      derivatives: derivatives,
     );
   }
 

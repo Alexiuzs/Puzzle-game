@@ -38,6 +38,12 @@ class PuzzleNotifier extends ChangeNotifier {
   // String? get activeWord => _activeWord;
   // String? get activeDefinition => _activeDefinition;
   LexicalEntry? activeLexicalEntry;
+  String? username;
+  String? lastRank;
+
+  // Stream for rank changes to trigger celebrations in the UI
+  final _rankChangedController = StreamController<String>.broadcast();
+  Stream<String> get onRankChanged => _rankChangedController.stream;
 
   DateTime _currentDate = DateTime.now();
   DateTime get currentDate => _currentDate;
@@ -155,6 +161,9 @@ class PuzzleNotifier extends ChangeNotifier {
   Future<void> initialize() async {
     debugPrint('initialize: beginning');
 
+    final prefs = await SharedPreferences.getInstance();
+    username = prefs.getString('username');
+
     // if we're in debug mode, check the hashes to make sure our data is up to date
     if (kDebugMode) {
       // get saved hash
@@ -214,6 +223,29 @@ class PuzzleNotifier extends ChangeNotifier {
       debugPrint('initialize failed: $e');
       rethrow;
     }
+
+    lastRank = currentRank;
+  }
+
+  Future<void> saveUsername(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', name);
+    username = name;
+    notifyListeners();
+  }
+
+  String generateRandomUsername() {
+    final random = Random();
+    final List<String> adjectives = [
+      'Ku', 'Ndongo', 'Jàmbaar', 'Rafet', 'Baax', 'Bees', 'Maa', 'Kàngam', 
+      'Xelu', 'Njaay', 'Saar', 'Aara', 'Yéene', 'Fiit', 'Ngande'
+    ];
+    final List<String> nouns = [
+      'Kàccoor', 'Wure', 'Araf', 'Baat', 'Ciyari', 'Xam-xam', 'Talibe', 
+      'Ndeyjoor', 'Càmmoñ', 'Nit', 'Koor', 'Xoox', 'Ndajé', 'Yoon', 'Lekk'
+    ];
+    
+    return '${adjectives[random.nextInt(adjectives.length)]}-${nouns[random.nextInt(nouns.length)]}${random.nextInt(100)}';
   }
 
   Future<void> _loadPuzzleForDate(
@@ -251,6 +283,14 @@ class PuzzleNotifier extends ChangeNotifier {
     if (WordValidator.isValid(w, _puzzle!, _dictionary)) {
       _found.add(w);
       _saveState();
+
+      // Check for rank change
+      final newRank = currentRank;
+      if (newRank != lastRank) {
+        _rankChangedController.add(newRank);
+        lastRank = newRank;
+      }
+
       notifyListeners();
       return SubmitResult.success;
     }
@@ -260,6 +300,12 @@ class PuzzleNotifier extends ChangeNotifier {
       notifyListeners();
     }
     return SubmitResult.invalid;
+  }
+
+  @override
+  void dispose() {
+    _rankChangedController.close();
+    super.dispose();
   }
 
   Future<void> _loadSavedState(int seed) async {
@@ -337,7 +383,30 @@ class PuzzleNotifier extends ChangeNotifier {
     final wordObject = wordlist.firstWhere(
       (e) => e['word'].toString().toLowerCase() == word.toLowerCase(),
     );
-    return LexicalEntry.fromJson(wordObject);
+
+    final String stem = wordObject['stem']?.toString() ?? '';
+    List<String> derivatives = [];
+
+    if (stem.isNotEmpty) {
+      derivatives = wordlist
+          .where((e) {
+            final eWord = e['word'].toString().toLowerCase();
+            final eStem = e['stem']?.toString().toLowerCase();
+            return eStem == stem.toLowerCase() &&
+                eWord != word.toLowerCase();
+          })
+          .map((e) {
+            String w = e['word'].toString();
+            if (w.length > 1) {
+              return w[0].toUpperCase() + w.substring(1).toLowerCase();
+            }
+            return w.toUpperCase();
+          })
+          .toList();
+      derivatives.sort();
+    }
+
+    return LexicalEntry.fromJson(wordObject, derivatives: derivatives);
   }
 
   Future<void> setActiveLexicalEntry(String word) async {
@@ -378,6 +447,7 @@ class GameScreenState extends State<GameScreen> {
 
   late ConfettiController _confettiController;
   bool _showOnboarding = false;
+  StreamSubscription<String>? _rankSubscription;
 
   @override
   void initState() {
@@ -387,11 +457,116 @@ class GameScreenState extends State<GameScreen> {
       duration: const Duration(seconds: 1),
     );
     _notifier = context.read<PuzzleNotifier>();
+    
+    // Listen for rank changes to show celebration
+    _rankSubscription = _notifier.onRankChanged.listen((newRank) {
+      _showCelebrationDialog(newRank);
+    });
+
     // fire off initialization
     Timer.run(() async {
       await _notifier.initialize();
       _checkOnboarding();
     });
+  }
+
+  void _showCelebrationDialog(String newRank) {
+    _confettiController.play();
+    Haptics.vibrate(HapticsType.heavy);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.amber[100],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.stars, size: 80, color: Colors.amber),
+            const SizedBox(height: 16),
+            Text(
+              'Ndokkale ${_notifier.username}!',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.brown,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Yég nga $newRank!',
+              style: const TextStyle(
+                fontSize: 20,
+                color: Colors.brown,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'waaw goor!',
+              style: TextStyle(
+                fontSize: 18,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Goor-goorlu moo tax a doon goor!',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.brown,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final String shareText = 
+                        'Wure Kaŋ-fóore - Ndokkale ${_notifier.username}!\n'
+                        'Yég naa ba yékk si daraza bi di $newRank!\n'
+                        'waaw goor! Goor-goorlu moo tax a doon goor!\n\n'
+                        'Wutal sa wure fii: https://wolofle.web.app';
+                    
+                    await Clipboard.setData(ClipboardData(text: shareText));
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Copied celebration to clipboard!')),
+                    );
+                  },
+                  icon: const Icon(Icons.share),
+                  label: const Text('Séedoo'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.brown,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Jërëjëf'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _checkOnboarding() async {
@@ -418,6 +593,7 @@ class GameScreenState extends State<GameScreen> {
   void dispose() {
     _controller.dispose();
     _confettiController.dispose();
+    _rankSubscription?.cancel();
     super.dispose();
   }
 
@@ -529,6 +705,7 @@ class GameScreenState extends State<GameScreen> {
                       child: ProgressThermometer(
                         currentWords: notifier.foundWords.length,
                         totalPossibleWords: notifier.totalPossible,
+                        username: notifier.username,
                       ),
                     ),
                   ],
@@ -930,9 +1107,17 @@ class GameScreenState extends State<GameScreen> {
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: Text(
-                                          notifier.activeLexicalEntry!.word
-                                              .toUpperCase(),
+                                        child: Text.rich(
+                                          TextSpan(
+                                            text: notifier.activeLexicalEntry!.word.toUpperCase(),
+                                            children: [
+                                              if (notifier.activeLexicalEntry!.derivatives.isNotEmpty)
+                                                TextSpan(
+                                                  text: ' - ${notifier.activeLexicalEntry!.derivatives.join(', ')}',
+                                                  style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+                                                ),
+                                            ],
+                                          ),
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16,
@@ -1009,23 +1194,67 @@ class GameScreenState extends State<GameScreen> {
                                             '',
                                       );
 
+                                      Widget _buildBoldedText(
+                                        String text,
+                                        String targetWord,
+                                        TextStyle baseStyle, {
+                                        bool italic = false,
+                                      }) {
+                                        if (text.isEmpty) return const SizedBox.shrink();
+
+                                        final String lowerText = text.toLowerCase();
+                                        final String lowerTarget = targetWord.toLowerCase();
+
+                                        final List<TextSpan> spans = [];
+                                        int start = 0;
+                                        int index = lowerText.indexOf(lowerTarget);
+
+                                        while (index != -1) {
+                                          if (index > start) {
+                                            spans.add(TextSpan(text: text.substring(start, index)));
+                                          }
+                                          spans.add(
+                                            TextSpan(
+                                              text: text.substring(index, index + targetWord.length),
+                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                          );
+                                          start = index + targetWord.length;
+                                          index = lowerText.indexOf(lowerTarget, start);
+                                        }
+
+                                        if (start < text.length) {
+                                          spans.add(TextSpan(text: text.substring(start)));
+                                        }
+
+                                        return RichText(
+                                          text: TextSpan(
+                                            style: baseStyle.copyWith(
+                                              fontStyle: italic ? FontStyle.italic : null,
+                                            ),
+                                            children: spans,
+                                          ),
+                                        );
+                                      }
+
                                       return Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          if (definition != '')
-                                            Text(
-                                              definition,
-                                              style: definitionStyle,
-                                            ),
+                                          _buildBoldedText(
+                                            definition,
+                                            notifier.activeLexicalEntry!.word,
+                                            definitionStyle,
+                                          ),
                                           if (definition != '' &&
                                               wolofProverb != '')
                                             const SizedBox(height: 8),
-                                          if (wolofProverb != '')
-                                            Text(
-                                              wolofProverb,
-                                              style: proverbStyle,
-                                            ),
+                                          _buildBoldedText(
+                                            wolofProverb,
+                                            notifier.activeLexicalEntry!.word,
+                                            proverbStyle,
+                                            italic: true,
+                                          ),
                                           if (wolofProverb != '')
                                             Text(
                                               '\t\tWolof Njaay',
@@ -1034,11 +1263,12 @@ class GameScreenState extends State<GameScreen> {
                                           if (wolofProverb != '' &&
                                               solomonProverb != '')
                                             const SizedBox(height: 8),
-                                          if (solomonProverb != '')
-                                            Text(
-                                              solomonProverb,
-                                              style: proverbStyle,
-                                            ),
+                                          _buildBoldedText(
+                                            solomonProverb,
+                                            notifier.activeLexicalEntry!.word,
+                                            proverbStyle,
+                                            italic: true,
+                                          ),
                                           if (ref != '')
                                             Text(
                                               '\t\tKàddu yu Xelu $ref',
