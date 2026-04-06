@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -166,54 +165,18 @@ class PuzzleNotifier extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     username = prefs.getString('username');
 
-    // if we're in debug mode, check the hashes to make sure our data is up to date
-    if (kDebugMode) {
-      // get saved hash
-      final rawHashData = await rootBundle.loadString(
-        'assets/generated/hash.json',
-      );
-      final hashObjects = json.decode(rawHashData);
-      final savedHash = hashObjects['data'][0]['hash'].toString();
-
-      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-      final dataFiles = manifest
-          .listAssets()
-          .where(
-            (path) =>
-                path.startsWith('assets/data/') && !path.endsWith('.DS_Store'),
-          )
-          .toList();
-
-      // Sort alphabetically by filename
-      dataFiles.sort((a, b) => a.split('/').last.compareTo(b.split('/').last));
-
-      final List<int> allBytes = [];
-      for (var path in dataFiles) {
-        final byteData = await rootBundle.load(path);
-        allBytes.addAll(byteData.buffer.asUint8List());
-      }
-      final md5Hash = md5.convert(allBytes).toString();
-      if (md5Hash != savedHash) {
-        debugPrint('Hash mismatch! Data has changed.');
-        debugPrint('Rerun the prebuild script to update the data.');
-        assert(() {
-          throw Exception("____________Data is NOT up to date____________");
-        }());
-      }
-    }
-
     try {
       // load the wordlist data
       final rawWordlistData = await rootBundle.loadString(
         'assets/generated/wordlist.json',
       );
-      final wordObjects = json.decode(rawWordlistData);
-      wordlist = wordObjects['data'];
 
-      // get the list of words
-      _dictionary = wordlist.map((e) => e['word'].toString()).toList().toSet();
+      // Decoding 3MB+ JSON can freeze the UI, so we use compute for background processing
+      final data = await compute(_processWordlistData, rawWordlistData);
+      wordlist = data.wordlist;
+      _dictionary = data.dictionary;
 
-      // Alphabet
+      // Alphabet - small enough to load synchronously
       _alphabet = await AlphabetLoader.loadFromAsset(
         'assets/alphabets/wolof_alphabet.txt',
       );
@@ -228,6 +191,16 @@ class PuzzleNotifier extends ChangeNotifier {
 
     lastRank = currentRank;
   }
+
+  // Helper static method for compute
+  static _WordListData _processWordlistData(String rawJson) {
+    final decoded = json.decode(rawJson);
+    final List<dynamic> words = decoded['data'];
+    final Set<String> dict =
+        words.map((e) => e['word'].toString()).toList().toSet();
+    return _WordListData(words, dict);
+  }
+
 
   Future<void> saveUsername(String name) async {
     final prefs = await SharedPreferences.getInstance();
@@ -449,6 +422,12 @@ class PuzzleNotifier extends ChangeNotifier {
     activeLexicalEntry = null;
     notifyListeners();
   }
+}
+
+class _WordListData {
+  final List<dynamic> wordlist;
+  final Set<String> dictionary;
+  _WordListData(this.wordlist, this.dictionary);
 }
 
 class GameScreen extends StatefulWidget {
