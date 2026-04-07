@@ -632,15 +632,20 @@ class GameScreenState extends State<GameScreen> {
                     ),
                   ),
                   onSelected: (value) async {
-                    if (value == 'share') {
-                      final text = notifier.generateShareText();
-                      await Clipboard.setData(ClipboardData(text: text));
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Copied results to clipboard!'),
-                        ),
+                    if (value == 'calendar') {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _notifier.currentDate,
+                        firstDate: DateTime(2024),
+                        lastDate: DateTime.now(),
                       );
+                      if (picked != null) {
+                        await _notifier.setPuzzleDate(picked);
+                        setState(() {
+                          _message = '';
+                          _controller.clear();
+                        });
+                      }
                     } else if (value == 'instructions') {
                       if (!context.mounted) return;
                       Navigator.of(context).push(
@@ -656,10 +661,6 @@ class GameScreenState extends State<GameScreen> {
                           fullscreenDialog: true,
                         ),
                       );
-                    } else if (value == 'theme') {
-                      context.read<ThemeNotifier>().toggleTheme(
-                            !context.read<ThemeNotifier>().isDarkMode,
-                          );
                     } else if (value == 'report') {
                       if (!context.mounted) return;
                       _showFeedbackDialog(context);
@@ -667,10 +668,10 @@ class GameScreenState extends State<GameScreen> {
                   },
                   itemBuilder: (context) => [
                     const PopupMenuItem(
-                      value: 'share',
+                      value: 'calendar',
                       child: ListTile(
-                        leading: Icon(Icons.share),
-                        title: Text('Séedoo ko (Share)'),
+                        leading: Icon(Icons.calendar_today),
+                        title: Text('Xool taalif yi (Calendar)'),
                       ),
                     ),
                     const PopupMenuItem(
@@ -678,21 +679,6 @@ class GameScreenState extends State<GameScreen> {
                       child: ListTile(
                         leading: Icon(Icons.help_outline),
                         title: Text('Naka lañu ciyaar (How to play)'),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'theme',
-                      child: ListTile(
-                        leading: Icon(
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Icons.light_mode
-                              : Icons.dark_mode,
-                        ),
-                        title: Text(
-                          Theme.of(context).brightness == Brightness.dark
-                              ? 'Melo bu woyof (Light Mode)'
-                              : 'Melo bu lëndëm (Dark Mode)',
-                        ),
                       ),
                     ),
                     const PopupMenuItem(
@@ -707,6 +693,37 @@ class GameScreenState extends State<GameScreen> {
               },
             ),
             actions: [
+              IconButton(
+                icon: Icon(
+                  Theme.of(context).brightness == Brightness.dark
+                      ? Icons.light_mode
+                      : Icons.dark_mode,
+                ),
+                tooltip: 'Melo (Theme)',
+                onPressed: () {
+                  context.read<ThemeNotifier>().toggleTheme(
+                        !context.read<ThemeNotifier>().isDarkMode,
+                      );
+                },
+              ),
+              Consumer<PuzzleNotifier>(
+                builder: (context, notifier, _) {
+                  return IconButton(
+                    icon: const Icon(Icons.share),
+                    tooltip: 'Séedoo ko (Share)',
+                    onPressed: () async {
+                      final text = notifier.generateShareText();
+                      await Clipboard.setData(ClipboardData(text: text));
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Copied results to clipboard!'),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
               Consumer<PuzzleNotifier>(
                 builder: (context, notifier, _) {
                   return Theme(
@@ -739,25 +756,6 @@ class GameScreenState extends State<GameScreen> {
                       ],
                     ),
                   );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.calendar_today),
-                tooltip: 'Choose date',
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _notifier.currentDate,
-                    firstDate: DateTime(2024),
-                    lastDate: DateTime.now(),
-                  );
-                  if (picked != null) {
-                    await _notifier.setPuzzleDate(picked);
-                    setState(() {
-                      _message = '';
-                      _controller.clear();
-                    });
-                  }
                 },
               ),
             ],
@@ -1535,62 +1533,95 @@ class GameScreenState extends State<GameScreen> {
   void _showFeedbackDialog(BuildContext context,
       {String? word, bool isDefinition = false}) {
     final TextEditingController feedbackController = TextEditingController();
+    String selectedCategory = isDefinition ? 'Suggested definition' : 'Other error';
+
+    final List<String> categories = [
+      'missing words',
+      'Suggested definition',
+      'wrong definition',
+      'additional proverb',
+      'Other error',
+    ];
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(isDefinition
-            ? 'Indil sarya bi (Suggest definition)'
-            : 'Rappooru njuumbe (Error Report)'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (word != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text('Baat bi (Word): $word',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(isDefinition
+              ? 'Indil sarya bi (Suggest definition)'
+              : 'Rappooru njuumbe (Error Report)'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (word != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Text('Baat bi (Word): $word',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              DropdownButtonFormField<String>(
+                value: selectedCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Melo (Category)',
+                  border: OutlineInputBorder(),
+                ),
+                items: categories.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (newValue) {
+                  if (newValue != null) {
+                    setDialogState(() {
+                      selectedCategory = newValue;
+                    });
+                  }
+                },
               ),
-            TextField(
-              controller: feedbackController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Bindil sa jàppale ci wii baat...',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextField(
+                controller: feedbackController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Bindil sa jàppale ci wii baat...',
+                  border: OutlineInputBorder(),
+                ),
               ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Féexal (Cancel)'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final message = feedbackController.text;
+                if (message.trim().isEmpty) return;
+
+                Navigator.pop(context);
+                final success = await FeedbackService.sendErrorReport(
+                  messageText: message,
+                  word: word,
+                  context: selectedCategory,
+                );
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(success
+                          ? 'Jërëjëf! Sa rappoor jot nañu ko.'
+                          : 'Njuumbe am na ci yébal bi. Jéemal ko ëllëg.'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Yone (Send)'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Féexal (Cancel)'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final message = feedbackController.text;
-              if (message.trim().isEmpty) return;
-
-              Navigator.pop(context);
-              final success = await FeedbackService.sendErrorReport(
-                messageText: message,
-                word: word,
-                context: isDefinition ? 'Definition Suggestion' : 'General',
-              );
-
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(success
-                        ? 'Jërëjëf! Sa rappoor jot nañu ko.'
-                        : 'Njuumbe am na ci yébal bi. Jéemal ko ëllëg.'),
-                  ),
-                );
-              }
-            },
-            child: const Text('Yone (Send)'),
-          ),
-        ],
       ),
     );
   }
