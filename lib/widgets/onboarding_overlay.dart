@@ -113,7 +113,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                     shape: BoxShape.circle,
                     color: index == _currentStepIndex
                         ? Colors.white
-                        : Colors.white.withOpacity(0.3),
+                        : Colors.white.withAlpha(70),
                   ),
                 ),
               ),
@@ -164,10 +164,10 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withAlpha(35),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withAlpha(70),
                   width: 1.5,
                 ),
               ),
@@ -232,7 +232,7 @@ class HolePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.black.withOpacity(0.8);
+    final paint = Paint()..color = Colors.black.withAlpha(200);
 
     if (targetRect == null) {
       canvas.drawRect(Offset.zero & size, paint);
@@ -250,9 +250,7 @@ class HolePainter extends CustomPainter {
                   : targetRect!.height) /
               2 +
           10;
-      path.addOval(
-        Rect.fromCircle(center: targetRect!.center, radius: radius),
-      );
+      path.addOval(Rect.fromCircle(center: targetRect!.center, radius: radius));
     } else {
       final RRect rRect = RRect.fromRectAndRadius(
         targetRect!.inflate(10), // Padding around the target
@@ -265,7 +263,7 @@ class HolePainter extends CustomPainter {
 
     // Draw a prominent glowing highlight around the hole
     final highlightGlowPaint = Paint()
-      ..color = Colors.amber.withOpacity(0.6)
+      ..color = Colors.amber.withAlpha(120)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
