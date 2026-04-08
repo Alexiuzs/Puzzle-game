@@ -114,13 +114,24 @@ Future<void> preCookPuzzles() async {
     }
   }
 
+  // Randomize order of puzzles to eliminate repetitive puzzles
+  validPuzzles.shuffle();
+
   print(
     'Yielded ${validPuzzles.length} playable puzzles with 20+ words in ${sw.elapsedMilliseconds}ms!',
   );
 
-  final outputFile = File('../assets/generated/puzzles.json');
-  await outputFile.writeAsString(json.encode({'data': validPuzzles}));
-  print('Saved puzzles to ${outputFile.path}');
+  // for each 365 puzzles, write a new file
+  int chunkSize = 365;
+  int filesWritten = 0;
+  for (int i = 0; i < validPuzzles.length; i += chunkSize) {
+    int end = (i + chunkSize < validPuzzles.length) ? i + chunkSize : validPuzzles.length;
+    List<Map<String, dynamic>> chunk = validPuzzles.sublist(i, end);
+    filesWritten++;
+    final outputFile = File('../assets/generated/puzzles_$filesWritten.json');
+    await outputFile.writeAsString(json.encode({'data': chunk}));
+    print('Saved chunk $filesWritten to ${outputFile.path}');
+  }
 }
 
 // Helpers
