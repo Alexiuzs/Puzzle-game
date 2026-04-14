@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'screens/game_screen.dart';
 import 'screens/username_screen.dart';
 import 'theme_notifier.dart';
@@ -9,6 +9,7 @@ late Box userPrefsBox;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter('wure');
   userPrefsBox = await Hive.openBox('userPrefs');
   final username = userPrefsBox.get('username');
   runApp(MyApp(hasUsername: username != null && username.isNotEmpty));
