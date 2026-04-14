@@ -204,10 +204,10 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withAlpha(35),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withAlpha(70),
                   width: 1.5,
                 ),
               ),
@@ -256,7 +256,7 @@ class HolePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.black.withOpacity(0.8);
+    final paint = Paint()..color = Colors.black.withAlpha(200);
 
     if (targetRect == null) {
       canvas.drawRect(Offset.zero & size, paint);
@@ -289,7 +289,7 @@ class HolePainter extends CustomPainter {
 
     // Draw a prominent glowing highlight around the hole
     final highlightGlowPaint = Paint()
-      ..color = Colors.amber.withOpacity(0.6)
+      ..color = Colors.amber.withAlpha(120)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);

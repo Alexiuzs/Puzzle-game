@@ -39,7 +39,7 @@ class _InstructionsPageState extends State<InstructionsPage> {
                       isWolof = value;
                     });
                   },
-                  activeColor: Colors.green,
+                  activeThumbColor: Colors.green,
                   inactiveThumbColor: Colors.blue[800],
                   inactiveTrackColor: Colors.blue[100],
                 ),
@@ -65,7 +65,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
             ),
             const SizedBox(height: 24),
             _Section(
-              title: isWolof ? 'Gisal ay baat yu bare ci 7 araf yi ñu jox.' : 'Trouvez autant de mots que possible en utilisant les 7 lettres proposées.',
+              title: isWolof
+                  ? 'Gisal ay baat yu bare ci 7 araf yi ñu jox.'
+                  : 'Trouvez autant de mots que possible en utilisant les 7 lettres proposées.',
               content: '',
               theme: theme,
             ),
@@ -110,7 +112,10 @@ class _InstructionsPageState extends State<InstructionsPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorScheme.primaryContainer,
                   foregroundColor: colorScheme.onPrimaryContainer,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ),
@@ -120,7 +125,7 @@ class _InstructionsPageState extends State<InstructionsPage> {
                 isWolof ? 'Jàmm rekk ak mbégt' : 'Bonne chance et amusez-vous',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontStyle: FontStyle.italic,
-                  color: colorScheme.onSurface.withOpacity(0.7),
+                  color: colorScheme.onSurface.withAlpha(200),
                 ),
               ),
             ),
@@ -158,28 +163,25 @@ class _Section extends StatelessWidget {
         ),
         if (content != null && content!.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(
-            content!,
-            style: theme.textTheme.bodyLarge,
-          ),
+          Text(content!, style: theme.textTheme.bodyLarge),
         ],
         if (items != null) ...[
           const SizedBox(height: 8),
-          ...items!.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 4.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: theme.textTheme.bodyLarge,
-                      ),
-                    ),
-                  ],
-                ),
-              )),
+          ...items!.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 4.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '• ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Expanded(child: Text(item, style: theme.textTheme.bodyLarge)),
+                ],
+              ),
+            ),
+          ),
         ],
       ],
     );
