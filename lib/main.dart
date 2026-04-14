@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 import 'screens/game_screen.dart';
 import 'screens/username_screen.dart';
 import 'theme_notifier.dart';
 
+late Box userPrefsBox;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  final username = prefs.getString('username');
+  userPrefsBox = await Hive.openBox('userPrefs');
+  final username = userPrefsBox.get('username');
   runApp(MyApp(hasUsername: username != null && username.isNotEmpty));
 }
 

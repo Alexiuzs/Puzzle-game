@@ -39,11 +39,13 @@ class OnboardingOverlay extends StatefulWidget {
 
 class _OnboardingOverlayState extends State<OnboardingOverlay> {
   int _currentStepIndex = 0;
+  Rect? _targetRect;
 
   void _nextStep() {
     if (_currentStepIndex < widget.steps.length - 1) {
       setState(() {
         _currentStepIndex++;
+        _targetRect = null;
       });
     } else {
       widget.onFinish();
@@ -55,11 +57,53 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _scheduleRectUpdate();
+  }
+
+  @override
+  void didUpdateWidget(OnboardingOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleRectUpdate();
+  }
+
+  void _scheduleRectUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.steps.isEmpty) return;
+      try {
+        final newRect = _getWidgetRect(
+          widget.steps[_currentStepIndex].targetKey,
+        );
+        if (newRect != _targetRect) {
+          setState(() {
+            _targetRect = newRect;
+          });
+        }
+      } catch (e) {
+        // ignore inactive elements
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (widget.steps.isEmpty) return const SizedBox.shrink();
 
+    _scheduleRectUpdate();
+
     final currentStep = widget.steps[_currentStepIndex];
-    Rect? targetRect = _getWidgetRect(currentStep.targetKey);
+    Rect? targetRect = _targetRect;
+
+    if (targetRect == null) {
+      try {
+        targetRect = _getWidgetRect(currentStep.targetKey);
+      } catch (e) {
+        // fallback
+      }
+    }
+
     if (targetRect != null) {
       targetRect = targetRect.shift(currentStep.tweakOffset);
     }
@@ -165,11 +209,16 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
   }
 
   Rect? _getWidgetRect(GlobalKey key) {
-    final RenderBox? renderBox =
-        key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return null;
-    final offset = renderBox.localToGlobal(Offset.zero);
-    return offset & renderBox.size;
+    try {
+      final BuildContext? ctx = key.currentContext;
+      if (ctx == null) return null;
+      final RenderBox? renderBox = ctx.findRenderObject() as RenderBox?;
+      if (renderBox == null || !renderBox.attached) return null;
+      final offset = renderBox.localToGlobal(Offset.zero);
+      return offset & renderBox.size;
+    } catch (e) {
+      return null;
+    }
   }
 
   Widget _buildInstructionBox(
@@ -179,16 +228,33 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
   ) {
     final screenSize = MediaQuery.of(context).size;
 
+    double holeTop;
+    double holeBottom;
+
+    if (step.shape == HighlightShape.circle) {
+      final radius =
+          (targetRect.width > targetRect.height
+                  ? targetRect.width
+                  : targetRect.height) /
+              2 +
+          step.padding;
+      holeTop = targetRect.center.dy - radius;
+      holeBottom = targetRect.center.dy + radius;
+    } else {
+      holeTop = targetRect.top - step.padding;
+      holeBottom = targetRect.bottom + step.padding;
+    }
+
     // Determine position (above or below the target)
     double? top;
     double? bottom;
 
     if (targetRect.center.dy > screenSize.height / 2) {
       // Target is in bottom half, show box above
-      bottom = screenSize.height - targetRect.top + 12;
+      bottom = screenSize.height - holeTop + 12;
     } else {
       // Target is in top half, show box below
-      top = targetRect.bottom + 20;
+      top = holeBottom + 20;
     }
 
     return Positioned(
@@ -274,9 +340,7 @@ class HolePainter extends CustomPainter {
                   : targetRect!.height) /
               2 +
           padding;
-      path.addOval(
-        Rect.fromCircle(center: targetRect!.center, radius: radius),
-      );
+      path.addOval(Rect.fromCircle(center: targetRect!.center, radius: radius));
     } else {
       final RRect rRect = RRect.fromRectAndRadius(
         targetRect!.inflate(padding), // Padding around the target
