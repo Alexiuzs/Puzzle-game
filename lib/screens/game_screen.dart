@@ -6,15 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:confetti/confetti.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/puzzle.dart';
 import '../models/lexical_entry.dart';
-import '../services/alphabet_loader.dart';
-import '../services/puzzle_generator.dart';
-import '../services/word_validator.dart';
 import '../services/feedback_service.dart';
 import '../widgets/letter_wheel.dart';
 import '../widgets/word_list.dart';
@@ -24,20 +21,17 @@ import '../widgets/instructions_page.dart';
 import '../widgets/onboarding_overlay.dart';
 import '../widgets/progress_thermometer.dart';
 import 'username_screen.dart';
+import '../main.dart';
 
 enum SubmitResult { success, alreadyFound, invalid, missingCenter }
 
 /// Notifier that holds the current puzzle state and user progress.
 class PuzzleNotifier extends ChangeNotifier {
   Puzzle? _puzzle;
-  List<String> _alphabet = [];
+  int _numberOfPuzzles = 0;
   Set<String> _dictionary = {}; // Separate list of words from the same wordlist
   List<dynamic> wordlist = []; // List of word objects in json format
-  // String? _activeWord;
-  // String? _activeDefinition;
 
-  // String? get activeWord => _activeWord;
-  // String? get activeDefinition => _activeDefinition;
   LexicalEntry? activeLexicalEntry;
   String? username;
   String? lastRank;
@@ -162,8 +156,7 @@ class PuzzleNotifier extends ChangeNotifier {
   Future<void> initialize() async {
     debugPrint('initialize: beginning');
 
-    final prefs = await SharedPreferences.getInstance();
-    username = prefs.getString('username');
+    username = userPrefsBox.get('username') ?? generateRandomUsername();
 
     try {
       // load the wordlist data
@@ -176,10 +169,10 @@ class PuzzleNotifier extends ChangeNotifier {
       wordlist = data.wordlist;
       _dictionary = data.dictionary;
 
-      // Alphabet - small enough to load synchronously
-      _alphabet = await AlphabetLoader.loadFromAsset(
-        'assets/alphabets/wolof_alphabet.txt',
+      final rawPuzzleInfo = await rootBundle.loadString(
+        'assets/generated/puzzle_info.json',
       );
+      _numberOfPuzzles = json.decode(rawPuzzleInfo)['numberOfPuzzles'];
 
       await _loadPuzzleForDate(_currentDate);
 
@@ -204,8 +197,7 @@ class PuzzleNotifier extends ChangeNotifier {
   }
 
   Future<void> saveUsername(String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username', name);
+    await userPrefsBox.put('username', name);
     username = name;
     notifyListeners();
   }
@@ -250,18 +242,40 @@ class PuzzleNotifier extends ChangeNotifier {
     return '${adjectives[random.nextInt(adjectives.length)]}-${nouns[random.nextInt(nouns.length)]}${random.nextInt(100)}';
   }
 
-  Future<void> _loadPuzzleForDate(
-    DateTime date, {
-    bool isInitial = true,
-  }) async {
+  Future<void> _loadPuzzleForDate(DateTime date) async {
     final seed = int.parse(DateFormat('yyyyMMdd').format(date));
 
-    // On first load of the day, we default to the single daily puzzle.
-    if (isInitial) {
-      // No difficulty to set
-    }
+    // Calculate days since epoch
+    final epoch = DateTime(2024, 1, 1);
+    final daysSinceEpoch = date.difference(epoch).inDays;
 
-    _puzzle = PuzzleGenerator.generateDaily(seed, _alphabet, _dictionary);
+    // Circular indexing if outside range
+    final index =
+        (daysSinceEpoch % _numberOfPuzzles + _numberOfPuzzles) %
+        _numberOfPuzzles;
+    final fileNumber = (index ~/ 365) + 1;
+    final indexInFile = index % 365;
+
+    final rawPuzzleData = await rootBundle.loadString(
+      'assets/generated/puzzles_$fileNumber.json',
+    );
+    final Map<String, dynamic> decoded = json.decode(rawPuzzleData);
+    final List<dynamic> allPuzzlesInFile = decoded['data'];
+    final puzzleData = allPuzzlesInFile[indexInFile];
+
+    final String center = puzzleData['centerLetter'];
+    final String others = puzzleData['otherLetters'];
+    final List<String> words = List<String>.from(puzzleData['words']);
+
+    final letters = <String>[center, ...others.split('')];
+    letters.shuffle();
+
+    _puzzle = Puzzle(
+      centerLetter: center,
+      letters: letters,
+      validWords: words.toSet(),
+    );
+
     await _loadSavedState(seed);
     notifyListeners();
   }
@@ -282,7 +296,8 @@ class PuzzleNotifier extends ChangeNotifier {
     }
 
     if (_found.contains(w)) return SubmitResult.alreadyFound;
-    if (WordValidator.isValid(w, _puzzle!, _dictionary)) {
+
+    if (_puzzle!.validWords.contains(w)) {
       _found.add(w);
       _saveState();
 
@@ -311,10 +326,15 @@ class PuzzleNotifier extends ChangeNotifier {
   }
 
   Future<void> _loadSavedState(int seed) async {
-    final prefs = await SharedPreferences.getInstance();
     // Unique key per date ensures words are remembered
-    final savedFound = prefs.getStringList('found_$seed') ?? [];
-    final savedTried = prefs.getStringList('tried_$seed') ?? [];
+    final savedFoundRaw = userPrefsBox.get('found_$seed');
+    final savedFound = savedFoundRaw != null
+        ? List<String>.from(savedFoundRaw)
+        : <String>[];
+    final savedTriedRaw = userPrefsBox.get('tried_$seed');
+    final savedTried = savedTriedRaw != null
+        ? List<String>.from(savedTriedRaw)
+        : <String>[];
 
     _found.clear();
     _found.addAll(savedFound);
@@ -325,9 +345,8 @@ class PuzzleNotifier extends ChangeNotifier {
   Future<void> _saveState() async {
     if (_puzzle == null) return;
     final seed = int.parse(DateFormat('yyyyMMdd').format(_currentDate));
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('found_$seed', _found);
-    await prefs.setStringList('tried_$seed', _triedWords);
+    userPrefsBox.put('found_$seed', _found);
+    userPrefsBox.put('tried_$seed', _triedWords);
   }
 
   String generateShareText() {
@@ -363,21 +382,6 @@ class PuzzleNotifier extends ChangeNotifier {
       letters: all,
       validWords: _puzzle!.validWords,
     );
-    notifyListeners();
-  }
-
-  void refreshPuzzle() {
-    if (_alphabet.isEmpty || _dictionary.isEmpty) return;
-
-    final oldCenter = _puzzle?.centerLetter;
-    var newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary);
-    if (oldCenter != null && newPuzzle.centerLetter == oldCenter) {
-      newPuzzle = PuzzleGenerator.generateRandom(_alphabet, _dictionary);
-    }
-
-    _puzzle = newPuzzle;
-    _found.clear();
-    _triedWords.clear();
     notifyListeners();
   }
 
@@ -573,8 +577,7 @@ class GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _checkOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    final shown = prefs.getBool('onboarding_shown_v1') ?? false;
+    final shown = userPrefsBox.get('onboarding_shown_v1') ?? false;
     if (!shown) {
       if (!mounted) return;
       setState(() {
@@ -584,8 +587,7 @@ class GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _markOnboardingShown() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_shown_v1', true);
+    userPrefsBox.put('onboarding_shown_v1', true);
     if (!mounted) return;
     setState(() {
       _showOnboarding = false;
@@ -714,13 +716,15 @@ class GameScreenState extends State<GameScreen> {
                     tooltip: 'Séedoo ko (Share)',
                     onPressed: () async {
                       final text = notifier.generateShareText();
-                      await Clipboard.setData(ClipboardData(text: text));
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Copied results to clipboard!'),
-                        ),
-                      );
+                      linkShare(text, size);
+
+                      // await Clipboard.setData(ClipboardData(text: text));
+                      // if (!context.mounted) return;
+                      // ScaffoldMessenger.of(context).showSnackBar(
+                      //   const SnackBar(
+                      //     content: Text('Copied results to clipboard!'),
+                      //   ),
+                      // );
                     },
                   );
                 },
@@ -1420,7 +1424,9 @@ class GameScreenState extends State<GameScreen> {
             ),
           ),
         ),
-        if (_showOnboarding)
+        if (_showOnboarding &&
+            _centerKey.currentState != null &&
+            _centerKey.currentState!.mounted)
           OnboardingOverlay(
             onFinish: _markOnboardingShown,
             steps: [
@@ -1430,16 +1436,17 @@ class GameScreenState extends State<GameScreen> {
                 description:
                     ' Wuutal ay baat yu bare ci 7 araf yi ñu jox.\n\nTrouvez autant de mots que possible en utilisant les 7 lettres proposées.',
                 shape: HighlightShape.rectangle,
-                tweakOffset: const Offset(-30, 0),
+                tweakOffset: const Offset(1, 1),
+                padding: 0,
               ),
               OnboardingStep(
-                targetKey: _wheelKey,
+                targetKey: _centerKey,
                 title: 'Wure araf yi',
                 description:
                     'Jëfandikool araf yi nekk ci Wure bi ngir defar ay baat.\n\nUtilisez les lettres dans le cercle pour former des mots.',
                 shape: HighlightShape.circle,
                 tweakOffset: const Offset(0, 0),
-                padding: 2,
+                padding: 150,
               ),
               OnboardingStep(
                 targetKey: _centerKey,
@@ -1661,3 +1668,23 @@ const List<Color> colorList = [
   Colors.blueGrey,
   Colors.black,
 ];
+
+void linkShare(String message, Size size) async {
+  // if (!kIsWeb) {
+  SharePlus.instance.share(
+    ShareParams(
+      text: message,
+      sharePositionOrigin: Rect.fromLTWH(0, 0, size.width, size.height * .33),
+    ),
+  );
+  // } else {
+  //   String url =
+  //       "mailto:?&body=$message";
+
+  //   if (await canLaunchUrl(Uri.parse(url))) {
+  //     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  //   } else {
+  //     throw 'Could not launch $url';
+  //   }
+  // }
+}

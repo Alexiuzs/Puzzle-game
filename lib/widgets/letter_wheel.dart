@@ -13,12 +13,14 @@ class LetterWheel extends StatefulWidget {
   final Puzzle puzzle;
   final void Function(String letter) onLetterTap;
   final GlobalKey? centerKey;
+  
 
   const LetterWheel({
     super.key,
     required this.puzzle,
     required this.onLetterTap,
     this.centerKey,
+    
   });
 
   @override
@@ -109,9 +111,7 @@ class LetterWheelState extends State<LetterWheel>
         .toList();
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final size = min(constraints.maxWidth, constraints.maxHeight) * 0.9;
@@ -126,6 +126,7 @@ class LetterWheelState extends State<LetterWheel>
                 width: size,
                 height: size,
                 child: Stack(
+                  
                   alignment: Alignment.center,
                   clipBehavior: Clip.none,
                   children: [

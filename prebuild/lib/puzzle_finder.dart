@@ -120,12 +120,19 @@ Future<void> preCookPuzzles() async {
   print(
     'Yielded ${validPuzzles.length} playable puzzles with 20+ words in ${sw.elapsedMilliseconds}ms!',
   );
+  // Save the number of puzzles for the UI to know how many days to generate
+  final outputFile = File('../assets/generated/puzzle_info.json');
+  await outputFile.writeAsString(
+    json.encode({'numberOfPuzzles': validPuzzles.length}),
+  );
 
   // for each 365 puzzles, write a new file
   int chunkSize = 365;
   int filesWritten = 0;
   for (int i = 0; i < validPuzzles.length; i += chunkSize) {
-    int end = (i + chunkSize < validPuzzles.length) ? i + chunkSize : validPuzzles.length;
+    int end = (i + chunkSize < validPuzzles.length)
+        ? i + chunkSize
+        : validPuzzles.length;
     List<Map<String, dynamic>> chunk = validPuzzles.sublist(i, end);
     filesWritten++;
     final outputFile = File('../assets/generated/puzzles_$filesWritten.json');
