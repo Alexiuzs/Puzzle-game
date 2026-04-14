@@ -196,11 +196,12 @@ class PuzzleNotifier extends ChangeNotifier {
   static _WordListData _processWordlistData(String rawJson) {
     final decoded = json.decode(rawJson);
     final List<dynamic> words = decoded['data'];
-    final Set<String> dict =
-        words.map((e) => e['word'].toString()).toList().toSet();
+    final Set<String> dict = words
+        .map((e) => e['word'].toString())
+        .toList()
+        .toSet();
     return _WordListData(words, dict);
   }
-
 
   Future<void> saveUsername(String name) async {
     final prefs = await SharedPreferences.getInstance();
@@ -702,8 +703,8 @@ class GameScreenState extends State<GameScreen> {
                 tooltip: 'Melo (Theme)',
                 onPressed: () {
                   context.read<ThemeNotifier>().toggleTheme(
-                        !context.read<ThemeNotifier>().isDarkMode,
-                      );
+                    !context.read<ThemeNotifier>().isDarkMode,
+                  );
                 },
               ),
               Consumer<PuzzleNotifier>(
@@ -1252,14 +1253,15 @@ class GameScreenState extends State<GameScreen> {
                                                 '',
                                           );
 
-                                          Widget _buildBoldedText(
+                                          Widget buildBoldedText(
                                             String text,
                                             String targetWord,
                                             TextStyle baseStyle, {
                                             bool italic = false,
                                           }) {
-                                            if (text.isEmpty)
+                                            if (text.isEmpty) {
                                               return const SizedBox.shrink();
+                                            }
 
                                             final String lowerText = text
                                                 .toLowerCase();
@@ -1325,7 +1327,7 @@ class GameScreenState extends State<GameScreen> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              _buildBoldedText(
+                                              buildBoldedText(
                                                 definition,
                                                 notifier
                                                     .activeLexicalEntry!
@@ -1335,7 +1337,7 @@ class GameScreenState extends State<GameScreen> {
                                               if (definition != '' &&
                                                   wolofProverb != '')
                                                 const SizedBox(height: 8),
-                                              _buildBoldedText(
+                                              buildBoldedText(
                                                 wolofProverb,
                                                 notifier
                                                     .activeLexicalEntry!
@@ -1351,7 +1353,7 @@ class GameScreenState extends State<GameScreen> {
                                               if (wolofProverb != '' &&
                                                   solomonProverb != '')
                                                 const SizedBox(height: 8),
-                                              _buildBoldedText(
+                                              buildBoldedText(
                                                 solomonProverb,
                                                 notifier
                                                     .activeLexicalEntry!
@@ -1361,29 +1363,31 @@ class GameScreenState extends State<GameScreen> {
                                               ),
                                               if (ref != '')
                                                 Text(
-                                                   '\t\tKàddu yu Xelu $ref',
+                                                  '\t\tKàddu yu Xelu $ref',
                                                   style: refStyle,
                                                 ),
                                               const SizedBox(height: 12),
                                               Align(
-                                                alignment: Alignment.centerRight,
+                                                alignment:
+                                                    Alignment.centerRight,
                                                 child: TextButton.icon(
                                                   onPressed: () =>
                                                       _showFeedbackDialog(
-                                                    context,
-                                                    word: notifier
-                                                        .activeLexicalEntry!
-                                                        .word,
-                                                    isDefinition: true,
-                                                  ),
+                                                        context,
+                                                        word: notifier
+                                                            .activeLexicalEntry!
+                                                            .word,
+                                                        isDefinition: true,
+                                                      ),
                                                   icon: const Icon(
                                                     Icons.lightbulb_outline,
                                                     size: 16,
                                                   ),
                                                   label: const Text(
                                                     'Indil sarya bi (Suggest definition)',
-                                                    style:
-                                                        TextStyle(fontSize: 12),
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                    ),
                                                   ),
                                                   style: TextButton.styleFrom(
                                                     foregroundColor: Theme.of(
@@ -1391,8 +1395,8 @@ class GameScreenState extends State<GameScreen> {
                                                     ).colorScheme.primary,
                                                     padding:
                                                         const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                    ),
+                                                          horizontal: 8,
+                                                        ),
                                                   ),
                                                 ),
                                               ),
@@ -1530,10 +1534,15 @@ class GameScreenState extends State<GameScreen> {
     _controller.clear();
   }
 
-  void _showFeedbackDialog(BuildContext context,
-      {String? word, bool isDefinition = false}) {
+  void _showFeedbackDialog(
+    BuildContext context, {
+    String? word,
+    bool isDefinition = false,
+  }) {
     final TextEditingController feedbackController = TextEditingController();
-    String selectedCategory = isDefinition ? 'Suggested definition' : 'Other error';
+    String selectedCategory = isDefinition
+        ? 'Suggested definition'
+        : 'Other error';
 
     final List<String> categories = [
       'missing words',
@@ -1547,9 +1556,11 @@ class GameScreenState extends State<GameScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(isDefinition
-              ? 'Indil sarya bi (Suggest definition)'
-              : 'Rappooru njuumbe (Error Report)'),
+          title: Text(
+            isDefinition
+                ? 'Indil sarya bi (Suggest definition)'
+                : 'Rappooru njuumbe (Error Report)',
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1557,11 +1568,13 @@ class GameScreenState extends State<GameScreen> {
               if (word != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Text('Baat bi (Word): $word',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Baat bi (Word): $word',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               DropdownButtonFormField<String>(
-                value: selectedCategory,
+                initialValue: selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Melo (Category)',
                   border: OutlineInputBorder(),
@@ -1611,9 +1624,11 @@ class GameScreenState extends State<GameScreen> {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(success
-                          ? 'Jërëjëf! Sa rappoor jot nañu ko.'
-                          : 'Njuumbe am na ci yébal bi. Jéemal ko ëllëg.'),
+                      content: Text(
+                        success
+                            ? 'Jërëjëf! Sa rappoor jot nañu ko.'
+                            : 'Njuumbe am na ci yébal bi. Jéemal ko ëllëg.',
+                      ),
                     ),
                   );
                 }

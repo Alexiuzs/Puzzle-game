@@ -104,7 +104,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                         shape: BoxShape.circle,
                         color: index == _currentStepIndex
                             ? Colors.white
-                            : Colors.white.withOpacity(0.3),
+                            : Colors.white.withAlpha(70),
                       ),
                     ),
                   ),
